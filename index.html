@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>終極聲控炸彈</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background-color: #2c3e50;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            touch-action: manipulation;
+            transition: background-color 0.5s;
+        }
+
+        /* 危險狀態背景色 */
+        body.stage-warning { background-color: #d35400; }
+        body.stage-danger { background-color: #c0392b; animation: flash-red 0.5s infinite; }
+        body.exploded { background-color: #000; }
+
+        @keyframes flash-red {
+            0% { background-color: #c0392b; }
+            50% { background-color: #e74c3c; }
+            100% { background-color: #c0392b; }
+        }
+
+        h1 { margin: 0 0 20px 0; font-size: 1.5rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+
+        #bomb-emoji {
+            font-size: 120px;
+            margin: 10px 0;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+            transition: transform 0.1s;
+        }
+
+        .shake-mild { animation: shake 0.8s infinite; }
+        .shake-crazy { animation: shake 0.2s infinite; }
+
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            25% { transform: translate(-2px, -2px) rotate(-2deg); }
+            50% { transform: translate(2px, 0px) rotate(2deg); }
+            75% { transform: translate(-1px, 2px) rotate(-1deg); }
+            100% { transform: translate(0px, 0px) rotate(0deg); }
+        }
+
+        #status-text {
+            font-size: 1.2rem;
+            min-height: 1.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #penalty-box {
+            display: none;
+            background: white;
+            color: #333;
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10;
+            animation: pop-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes pop-in {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+
+        #penalty-text {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #e74c3c;
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.3rem;
+            background: linear-gradient(145deg, #f1c40f, #f39c12);
+            color: #2c3e50;
+            border: none;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            margin-top: 20px;
+        }
+        button:active { transform: scale(0.95); }
+        .hidden { display: none !important; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🔥 極速傳炸彈</h1>
+
+    <div id="status-text">準備好了嗎？</div>
+    
+    <div id="bomb-emoji">💣</div>
+
+    <div id="penalty-box">
+        <h3>💥 爆炸了！</h3>
+        <p>請接受懲罰：</p>
+        <div id="penalty-text">抽取中...</div>
+        <button onclick="resetGame()">下一局</button>
+    </div>
+
+    <button id="start-btn" onclick="initGame()">點我開始</button>
+
+    <script>
+        // 遊戲變數
+        let recognition;
+        let isGameRunning = false;
+        let explodeTimer;
+        let beepInterval;
+        let totalTime = 0;
+        let timeElapsed = 0;
+        let audioCtx; // 音效上下文
+
+        // DOM 元素
+        const body = document.body;
+        const bombEl = document.getElementById('bomb-emoji');
+        const statusEl = document.getElementById('status-text');
+        const startBtn = document.getElementById('start-btn');
+        const penaltyBox = document.getElementById('penalty-box');
+        const penaltyText = document.getElementById('penalty-text');
+
+        // 懲罰列表 (適合小學生)
+        const penalties = [
+            "學狗叫三聲 🐶",
+            "做鬼臉十秒鐘 🤪",
+            "屁股寫字：我愛你 🍑",
+            "原地轉五圈 🌀",
+            "學機器人說話 🤖",
+            "跟右邊的人握手說你好 👋",
+            "深蹲三次 🏋️",
+            "擺一個帥氣的姿勢 ✨",
+            "模仿猴子抓癢 🐒",
+            "大喊：我是超級大帥哥/美女 📢"
+        ];
+
+        // 1. 初始化語音識別
+        function setupRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = false;
+                recognition.lang = 'zh-TW';
+
+                recognition.onresult = (event) => {
+                    if (!isGameRunning) return;
+                    const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                    if (transcript.length > 0) triggerPassEffect();
+                };
+                
+                recognition.onend = () => { if (isGameRunning) recognition.start(); };
+            } else {
+                alert("您的瀏覽器不支援語音，請使用 Chrome 或 Safari。");
+            }
+        }
+
+        // 2. 產生嗶嗶聲 (Web Audio API，不用下載檔案)
+        function playBeep(freq = 800, duration = 0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'square';
+            osc.frequency.value = freq;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playExplosion() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 1);
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1);
+        }
+
+        // 3. 遊戲邏輯
+        function initGame() {
+            // 初始化音效環境 (必須由用戶點擊觸發)
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            setupRecognition();
+            startGame();
+        }
+
+        function startGame() {
+            isGameRunning = true;
+            timeElapsed = 0;
+            totalTime = Math.floor(Math.random() * 30000) + 15000; // 15~45秒隨機
+            
+            // 介面重置
+            startBtn.classList.add('hidden');
+            penaltyBox.style.display = 'none';
+            bombEl.innerText = "💣";
+            bombEl.classList.add('shake-mild');
+            statusEl.innerText = "快說答案傳給下一位！";
+            body.className = ''; 
+
+            try { recognition.start(); } catch(e) {}
+
+            // 遊戲迴圈 (處理計時與音效加速)
+            clearInterval(beepInterval);
+            let beepRate = 1000; // 初始一秒嗶一次
+            
+            const gameLoop = () => {
+                if (!isGameRunning) return;
+                
+                timeElapsed += beepRate;
+                const percent = timeElapsed / totalTime;
+
+                // 播放音效
+                playBeep(800 + (percent * 500)); // 音調越來越高
+
+                // 視覺效果變化
+                if (percent > 0.5) body.className = 'stage-warning'; // 變橘色
+                if (percent > 0.8) {
+                    body.className = 'stage-danger'; // 變紅色閃爍
+                    bombEl.classList.remove('shake-mild');
+                    bombEl.classList.add('shake-crazy'); // 劇烈搖晃
+                }
+
+                // 調整下一聲嗶嗶的速度 (越來越快)
+                let nextInterval = 1000 - (percent * 900); // 最快 0.1秒嗶一次
+                if (nextInterval < 100) nextInterval = 100;
+
+                // 檢查是否爆炸
+                if (timeElapsed >= totalTime) {
+                    explode();
+                } else {
+                    beepInterval = setTimeout(gameLoop, nextInterval);
+                }
+            };
+
+            gameLoop();
+        }
+
+        // 4. 語音觸發特效
+        function triggerPassEffect() {
+            statusEl.innerText = "收到！快傳！";
+            statusEl.style.color = "#f1c40f";
+            bombEl.style.transform = "scale(1.3)";
+            if (navigator.vibrate) navigator.vibrate(50); // 短震動
+            
+            setTimeout(() => {
+                statusEl.innerText = "下一個！";
+                statusEl.style.color = "white";
+                bombEl.style.transform = "scale(1)";
+            }, 300);
+        }
+
+        // 5. 爆炸與懲罰
+        function explode() {
+            isGameRunning = false;
+            clearTimeout(beepInterval);
+            recognition.stop();
+
+            playExplosion();
+            if (navigator.vibrate) navigator.vibrate([500, 100, 500, 100, 1000]); // 長震動
+
+            body.className = 'exploded';
+            bombEl.innerText = "💥";
+            bombEl.classList.remove('shake-crazy');
+            statusEl.innerText = "";
+
+            // 顯示懲罰
+            setTimeout(() => {
+                const randomPenalty = penalties[Math.floor(Math.random() * penalties.length)];
+                penaltyText.innerText = randomPenalty;
+                penaltyBox.style.display = 'block';
+            }, 1000);
+        }
+
+        function resetGame() {
+            penaltyBox.style.display = 'none';
+            startBtn.classList.remove('hidden');
+            startBtn.innerText = "再來一局";
+            body.className = '';
+            bombEl.innerText = "💣";
+            statusEl.innerText = "準備開始";
+        }
+    </script>
+</body>
+</html>
