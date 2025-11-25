@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 (防作弊版)</title>
+    <title>端水大挑戰 V7 (平衡優化版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -19,7 +19,6 @@
         /* --- UI 按鈕 --- */
         button { border: none; outline: none; cursor: pointer; transition: transform 0.1s; }
         button:active { transform: scale(0.95); }
-        
         .btn-primary { padding: 15px 30px; font-size: 1.1rem; background: #3498db; color: white; border-radius: 10px; margin: 10px; width: 80%; max-width: 300px; }
         .btn-success { padding: 20px 40px; font-size: 1.5rem; background: #2ecc71; color: white; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); margin-bottom: 20px;}
         .btn-warning { padding: 15px 30px; font-size: 1.1rem; background: #f39c12; color: white; border-radius: 10px; margin: 10px; width: 80%; max-width: 300px; }
@@ -38,7 +37,7 @@
             transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.3);
         }
 
-        /* HUD 與 操作 */
+        /* 介面層 */
         #hud-layer, #action-area, #progress-bar-container { display: none; position: absolute; width: 100%; text-align: center; z-index: 10; }
         #hud-layer { top: 30px; }
         #timer-display { font-size: 2.5rem; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-top: 5px; font-variant-numeric: tabular-nums;}
@@ -56,23 +55,47 @@
         #progress-bar-container { bottom: 20px; width: 80%; height: 15px; background: #34495e; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.3); }
         #progress-bar { width: 0%; height: 100%; background: #2ecc71; transition: width 0.1s; }
 
-        /* Overlays (全螢幕層) */
+        /* 全螢幕覆蓋層 */
         .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #2c3e50; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; transition: 0.3s; }
         
         #setup-screen { z-index: 200; }
         input[type="text"] { padding: 15px; font-size: 1.5rem; border-radius: 10px; border: none; width: 70%; text-align: center; margin-bottom: 20px;}
         
         #leaderboard-screen { background: #8e44ad; z-index: 300; display: none; }
-        #leaderboard-list { width: 90%; max-height: 50vh; overflow-y: auto; background: white; color: #333; border-radius: 10px; margin: 20px 0; padding: 10px; }
-        .rank-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; font-size: 1.2rem; }
-        .rank-row:nth-child(1) { background: #f1c40f; font-weight: bold; }
+        #leaderboard-list { width: 95%; max-height: 60vh; overflow-y: auto; background: white; color: #333; border-radius: 10px; margin: 20px 0; padding: 5px; }
+        .rank-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee; font-size: 1rem; }
+        .rank-row:nth-child(1) { background: #fffbe6; }
+        .rank-info { display: flex; flex-direction: column; text-align: left; }
+        .rank-date { font-size: 0.8rem; color: #888; margin-top: 2px; }
 
         #end-screen { background: rgba(0,0,0,0.9); display: none; z-index: 250; }
         .end-title { font-size: 3rem; margin-bottom: 10px; }
 
+        /* --- 新增：校準儀樣式 --- */
+        #calibration-box {
+            width: 150px; height: 150px;
+            border: 4px dashed rgba(255,255,255,0.5);
+            border-radius: 50%;
+            position: relative;
+            margin-top: 20px;
+            background: rgba(0,0,0,0.3);
+            transition: border-color 0.2s;
+        }
+        #calibration-dot {
+            width: 30px; height: 30px;
+            background: #e74c3c;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            transition: background-color 0.2s, transform 0.1s; /* 讓它移動順暢 */
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .calib-ok { border-color: #2ecc71 !important; }
+        .dot-ok { background: #2ecc71 !important; }
+
         .loading { color: rgba(255,255,255,0.7); animation: pulse 1s infinite; }
         @keyframes pulse { 0%{opacity:0.5;} 100%{opacity:1;} }
-        
         .danger { border-color: #e74c3c !important; }
 
     </style>
@@ -81,16 +104,23 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">防作弊版 V6.0</p>
-        <input type="text" id="input-name" placeholder="輸入名字/代號" maxlength="8">
+        <p style="margin-bottom: 5px; color:#aaa;">V7.0 平衡優化版</p>
+        <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
-        <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 歷史排行榜</button>
+        <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
     </div>
 
     <div id="ready-screen" class="overlay" style="display:none; background: rgba(44, 62, 80, 0.95);">
         <h2 id="ready-player-display" style="color:#f1c40f;"></h2>
-        <div id="countdown-text" style="font-size: 8rem; color: #fff; font-weight: bold;">3</div>
-        <p style="color: #ccc; margin-top: 20px;">手機平放・準備平衡</p>
+        
+        <div id="calibration-box">
+            <div id="calibration-dot"></div>
+            <div style="position:absolute; top:50%; left:10%; width:80%; height:1px; background:rgba(255,255,255,0.3);"></div>
+            <div style="position:absolute; left:50%; top:10%; height:80%; width:1px; background:rgba(255,255,255,0.3);"></div>
+        </div>
+        <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">請將紅點移至中心變綠</p>
+
+        <div id="countdown-text" style="font-size: 5rem; color: #fff; font-weight: bold; margin-top: 10px;">3</div>
     </div>
 
     <div id="end-screen" class="overlay">
@@ -98,14 +128,14 @@
         <h2 id="end-score" style="color: #f1c40f;"></h2>
         <div id="upload-status" style="color:#ccc; margin-bottom:20px; height: 1.2em;"></div>
         
-        <button class="btn-success" onclick="retryGame()">🔄 再來一次 (同一個人)</button>
-        <button class="btn-warning" onclick="switchPlayer()">👥 換下一位 (輸入名字)</button>
-        <button class="btn-primary" onclick="showLeaderboard()">🏆 查看排行榜</button>
+        <button class="btn-success" onclick="retryGame()">🔄 再來一次</button>
+        <button class="btn-warning" onclick="switchPlayer()">👥 換人挑戰</button>
+        <button class="btn-primary" onclick="showLeaderboard()">🏆 英雄榜</button>
     </div>
 
     <div id="leaderboard-screen" class="overlay">
         <h1>🏅 歷史英雄榜</h1>
-        <div id="loading-text" class="loading">正在連線至雲端...</div>
+        <div id="loading-text" class="loading">正在連線...</div>
         <div id="leaderboard-list"></div>
         <button class="btn-primary" onclick="closeLeaderboard()">返回</button>
     </div>
@@ -126,10 +156,11 @@
     </div>
 
     <script>
-        // 設定您的 API
+        // ==========================================
+        // 請務必確認這裡的網址是您的 Google Script 網址
         const API_URL = 'https://script.google.com/macros/s/AKfycbz6e0gMIXjlXzbTl0pBeIKbeN7J4F7mEZSzI0SfJ0gPkTW3HNvqp6JNy_mEMnZDwz4/exec';
+        // ==========================================
 
-        // 變數
         const playerNameInput = document.getElementById('input-name');
         const setupScreen = document.getElementById('setup-screen');
         const readyScreen = document.getElementById('ready-screen');
@@ -148,35 +179,38 @@
         const progressBar = document.getElementById('progress-bar');
         const actionBtn = document.getElementById('action-btn');
         const uploadStatus = document.getElementById('upload-status');
+        
+        // 校準儀元件
+        const calibBox = document.getElementById('calibration-box');
+        const calibDot = document.getElementById('calibration-dot');
 
         let playerName = "";
         let isPlaying = false;
+        let isCalibrating = false; // 新增：是否在校準階段
         let startTime = 0;
         let timerInterval;
         
-        // 物理變數
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
         let tiltX = 0, tiltY = 0;
         let taskProgress = 0;
-        const taskGoal = 20; // 增加到20下，讓難度曲線更明顯
+        const taskGoal = 20; 
         const maxRadius = 120;
 
-        // 1. 初始化與權限
+        // 1. 權限
         function checkPermission() {
             const name = playerNameInput.value.trim();
             if (!name) { alert("請先輸入名字！"); return; }
             playerName = name;
             playerBadge.innerText = playerName;
 
-            // iOS 權限請求
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
                             prepareGame();
                         } else {
-                            alert("必須允許動作偵測才能玩喔！");
+                            alert("請允許動作偵測權限");
                         }
                     })
                     .catch(console.error);
@@ -185,7 +219,7 @@
             }
         }
 
-        // 2. 準備流程
+        // 2. 準備與校準 (核心修改)
         function prepareGame() {
             setupScreen.style.display = 'none';
             endScreen.style.display = 'none';
@@ -194,18 +228,17 @@
             
             document.getElementById('ready-player-display').innerText = `選手：${playerName}`;
             
-            // 重置遊戲參數
+            // 重置參數
             ballX = 0; ballY = 0; velocityX = 0; velocityY = 0;
             taskProgress = 0;
             progressBar.style.width = "0%";
             gameArea.classList.remove('danger');
             
-            // 啟動監聽 (如果是第一次)
+            // 開啟校準模式
+            isCalibrating = true;
             window.addEventListener('deviceorientation', handleOrientation);
-            // 啟動引擎
-            requestAnimationFrame(gameLoop);
+            requestAnimationFrame(gameLoop); // 啟動引擎(這裡只負責畫校準氣泡)
 
-            // 倒數
             let count = 3;
             const countText = document.getElementById('countdown-text');
             countText.innerText = count;
@@ -217,9 +250,10 @@
                     if(navigator.vibrate) navigator.vibrate(50);
                 } else {
                     clearInterval(timer);
+                    isCalibrating = false; // 結束校準
                     startGame();
                 }
-            }, 1000);
+            }, 1000); // 3秒倒數
         }
 
         function startGame() {
@@ -233,18 +267,16 @@
             startTime = Date.now();
             if(navigator.vibrate) navigator.vibrate(200);
 
-            // 計時器
             timerInterval = setInterval(() => {
                 const elapsed = (Date.now() - startTime) / 1000;
                 timerDisplay.innerText = elapsed.toFixed(2);
-            }, 50); // 更新頻率快一點
+            }, 50);
         }
 
-        // 3. 物理引擎 (陀螺儀)
+        // 3. 物理與校準邏輯 (合併)
         function handleOrientation(event) {
-            let x = event.gamma; // 左右
-            let y = event.beta;  // 前後
-            // 限制最大傾斜角度
+            let x = event.gamma; 
+            let y = event.beta;
             if (x > 45) x = 45; if (x < -45) x = -45;
             if (y > 45) y = 45; if (y < -45) y = -45;
             tiltX = x; tiltY = y;
@@ -252,28 +284,45 @@
 
         function gameLoop() {
             requestAnimationFrame(gameLoop);
+
+            // A. 如果是校準階段 (倒數時)
+            if (isCalibrating) {
+                // 將 tiltX, tiltY 映射到氣泡位置
+                // 氣泡移動範圍小一點，讓視覺更明顯
+                let dotX = tiltX * 1.5; 
+                let dotY = tiltY * 1.5;
+                
+                // 限制在框框內
+                if (dotX > 60) dotX = 60; if (dotX < -60) dotX = -60;
+                if (dotY > 60) dotY = 60; if (dotY < -60) dotY = -60;
+
+                calibDot.style.transform = `translate(calc(-50% + ${dotX}px), calc(-50% + ${dotY}px))`;
+
+                // 判斷是否水平 (給予視覺回饋)
+                const dist = Math.sqrt(dotX*dotX + dotY*dotY);
+                if (dist < 10) {
+                    calibBox.classList.add('calib-ok');
+                    calibDot.classList.add('dot-ok');
+                } else {
+                    calibBox.classList.remove('calib-ok');
+                    calibDot.classList.remove('dot-ok');
+                }
+                return; // 校準時不執行下方物理運算
+            }
+
+            // B. 遊戲進行階段
             if (!isPlaying) return;
 
-            // 物理計算
             velocityX += tiltX * 0.05; 
             velocityY += tiltY * 0.05;
-            
-            // 摩擦力
-            velocityX *= 0.92; 
-            velocityY *= 0.92;
-            
-            ballX += velocityX; 
-            ballY += velocityY;
+            velocityX *= 0.92; velocityY *= 0.92;
+            ballX += velocityX; ballY += velocityY;
 
             const dist = Math.sqrt(ballX * ballX + ballY * ballY);
-            
-            // 邊界判定
             if (dist > maxRadius) {
                 endGame(false);
             } else {
                 ball.style.transform = `translate(calc(-50% + ${ballX}px), calc(-50% + ${ballY}px))`;
-                
-                // 視覺警示
                 if (dist > maxRadius * 0.8) {
                     gameArea.classList.add('danger');
                     timerDisplay.style.color = "#e74c3c";
@@ -284,34 +333,29 @@
             }
         }
 
-        // 4. 防作弊點擊機制 (核心修改)
+        // 4. 平衡修正後的點擊力道
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
 
-            // --- 防作弊邏輯 ---
-            // 計算目前進度百分比 (0.0 ~ 1.0)
             let intensity = taskProgress / taskGoal;
             
-            // 基礎干擾力道 + 進階力道 (充能越滿，踢得越大力)
-            // 基礎 10，滿能量時額外加 40 -> 最高 50 的力道
-            let kickForce = 15 + (intensity * 40); 
+            // 力道修正：從 V6 的 15~55 降低為 8~20
+            // 基礎干擾 8，滿能量時額外加 12 -> 最高 20
+            // 這樣有感，但不至於瞬間飛出界
+            let kickForce = 8 + (intensity * 12); 
             
-            // 給予隨機方向的猛烈推力
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
-            // 震動回饋 (充能越滿，震動越久)
-            // 基礎 50ms，滿能量時 200ms
             if(navigator.vibrate) {
-                navigator.vibrate(50 + (intensity * 150));
+                // 震動也稍微溫柔一點
+                navigator.vibrate(30 + (intensity * 100));
             }
-            // -----------------
 
             taskProgress++;
             progressBar.style.width = (taskProgress / taskGoal) * 100 + "%";
             
-            // 按鈕視覺縮放
             actionBtn.style.transform = "scale(0.9)";
             setTimeout(() => actionBtn.style.transform = "scale(1)", 50);
 
@@ -320,20 +364,16 @@
             }
         }
 
-        // 5. 遊戲結束處理 (整合)
         function endGame(isWin) {
             isPlaying = false;
             clearInterval(timerInterval);
             
             const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
             
-            // 隱藏遊戲介面
             gameArea.style.display = 'none';
             hudLayer.style.display = 'none';
             actionArea.style.display = 'none';
             progressBarContainer.style.display = 'none';
-            
-            // 顯示結算畫面
             endScreen.style.display = 'flex';
             
             const titleEl = document.getElementById('end-title');
@@ -344,70 +384,36 @@
                 titleEl.style.color = "#2ecc71";
                 scoreEl.innerText = `${finalTime} 秒`;
                 if(navigator.vibrate) navigator.vibrate([100,100,200]);
-                
-                // 自動上傳成績
                 uploadScore(playerName, finalTime);
             } else {
                 titleEl.innerText = "💥 碎了！";
                 titleEl.style.color = "#e74c3c";
                 scoreEl.innerText = "淘汰 (DNF)";
-                uploadStatus.innerText = ""; // 失敗不上傳，或者您可以選擇上傳
+                uploadStatus.innerText = "";
                 if(navigator.vibrate) navigator.vibrate(1000);
             }
         }
 
-        // 6. 資料上傳
         function uploadScore(name, time) {
             uploadStatus.innerText = "正在上傳成績...";
             const url = `${API_URL}?action=add&name=${encodeURIComponent(name)}&time=${time}`;
-
             fetch(url)
                 .then(res => res.text())
-                .then(data => {
-                    uploadStatus.innerText = "✅ 成績已上傳雲端";
-                })
-                .catch(err => {
-                    console.error(err);
-                    uploadStatus.innerText = "⚠️ 上傳失敗 (請檢查網路)";
-                });
+                .then(data => { uploadStatus.innerText = "✅ 成績已上傳"; })
+                .catch(err => { uploadStatus.innerText = "⚠️ 上傳失敗"; });
         }
 
-        // 7. 流程控制 (按鈕功能)
-        function retryGame() {
-            // 直接重新開始 (同名)
-            prepareGame();
-        }
-
-        function switchPlayer() {
-            // 回到輸入名字畫面
-            endScreen.style.display = 'none';
-            setupScreen.style.display = 'flex';
-            playerNameInput.value = ""; // 清空名字
-        }
-
-        function showLeaderboard() {
-            setupScreen.style.display = 'none';
-            endScreen.style.display = 'none';
-            leaderboardScreen.style.display = 'flex';
-            fetchLeaderboard();
-        }
-
+        function retryGame() { prepareGame(); }
+        function switchPlayer() { endScreen.style.display = 'none'; setupScreen.style.display = 'flex'; playerNameInput.value = ""; }
+        function showLeaderboard() { setupScreen.style.display = 'none'; endScreen.style.display = 'none'; leaderboardScreen.style.display = 'flex'; fetchLeaderboard(); }
         function closeLeaderboard() {
             leaderboardScreen.style.display = 'none';
-            // 如果是在 setup 階段按的，回 setup
-            // 如果是在 end 階段按的，回 end
-            if (!playerName) {
-                setupScreen.style.display = 'flex';
-            } else {
-                // 簡單判斷：如果有成績顯示，就回結算畫面，否則回 setup
-                if (document.getElementById('end-title').innerText) {
-                    endScreen.style.display = 'flex';
-                } else {
-                    setupScreen.style.display = 'flex';
-                }
-            }
+            if (!playerName) setupScreen.style.display = 'flex';
+            else if (document.getElementById('end-title').innerText) endScreen.style.display = 'flex';
+            else setupScreen.style.display = 'flex';
         }
 
+        // 5. 排行榜 (包含日期處理)
         function fetchLeaderboard() {
             loadingText.style.display = 'block';
             leaderboardList.innerHTML = "";
@@ -418,9 +424,7 @@
                     loadingText.style.display = 'none';
                     renderLeaderboard(data);
                 })
-                .catch(err => {
-                    loadingText.innerText = "讀取失敗";
-                });
+                .catch(err => { loadingText.innerText = "讀取失敗"; });
         }
 
         function renderLeaderboard(data) {
@@ -431,13 +435,23 @@
                 data.forEach((item, index) => {
                     let rank = index + 1;
                     let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : rank + '.'));
-                    // 標記目前玩家
                     let style = item.name === playerName ? 'background:#dff9fb;' : '';
                     
+                    // 日期格式化
+                    let dateStr = "";
+                    if (item.date) {
+                        let d = new Date(item.date);
+                        // 轉成 月/日 時:分 (例如 11/26 14:30)
+                        dateStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+                    }
+
                     html += `
                         <div class="rank-row" style="${style}">
-                            <span>${medal} ${item.name}</span>
-                            <span>${item.time} 秒</span>
+                            <div class="rank-info">
+                                <span style="font-weight:bold; font-size:1.1rem;">${medal} ${item.name}</span>
+                                <span class="rank-date">${dateStr}</span>
+                            </div>
+                            <span style="font-weight:bold; color:#34495e;">${item.time} 秒</span>
                         </div>
                     `;
                 });
