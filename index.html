@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V7 (平衡優化版)</title>
+    <title>端水大挑戰 V8 (穩重版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -71,7 +71,7 @@
         #end-screen { background: rgba(0,0,0,0.9); display: none; z-index: 250; }
         .end-title { font-size: 3rem; margin-bottom: 10px; }
 
-        /* --- 新增：校準儀樣式 --- */
+        /* 校準儀 */
         #calibration-box {
             width: 150px; height: 150px;
             border: 4px dashed rgba(255,255,255,0.5);
@@ -82,17 +82,17 @@
             transition: border-color 0.2s;
         }
         #calibration-dot {
-            width: 30px; height: 30px;
+            width: 20px; height: 20px; /* 縮小紅點 */
             background: #e74c3c;
             border-radius: 50%;
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            transition: background-color 0.2s, transform 0.1s; /* 讓它移動順暢 */
+            transition: background-color 0.2s; /* 移除 transform transition 以獲得即時回饋 */
             box-shadow: 0 0 10px rgba(0,0,0,0.5);
         }
-        .calib-ok { border-color: #2ecc71 !important; }
-        .dot-ok { background: #2ecc71 !important; }
+        .calib-ok { border-color: #2ecc71 !important; background: rgba(46, 204, 113, 0.2) !important; }
+        .dot-ok { background: #2ecc71 !important; width: 25px !important; height: 25px !important;}
 
         .loading { color: rgba(255,255,255,0.7); animation: pulse 1s infinite; }
         @keyframes pulse { 0%{opacity:0.5;} 100%{opacity:1;} }
@@ -104,7 +104,7 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">V7.0 平衡優化版</p>
+        <p style="margin-bottom: 5px; color:#aaa;">V8.0 穩重版</p>
         <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
         <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
@@ -115,10 +115,11 @@
         
         <div id="calibration-box">
             <div id="calibration-dot"></div>
-            <div style="position:absolute; top:50%; left:10%; width:80%; height:1px; background:rgba(255,255,255,0.3);"></div>
-            <div style="position:absolute; left:50%; top:10%; height:80%; width:1px; background:rgba(255,255,255,0.3);"></div>
+            <div style="position:absolute; top:50%; left:20%; width:60%; height:1px; background:rgba(255,255,255,0.3);"></div>
+            <div style="position:absolute; left:50%; top:20%; height:60%; width:1px; background:rgba(255,255,255,0.3);"></div>
+            <div style="position:absolute; top:50%; left:50%; width:30px; height:30px; border:1px solid rgba(255,255,255,0.5); border-radius:50%; transform:translate(-50%,-50%);"></div>
         </div>
-        <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">請將紅點移至中心變綠</p>
+        <p style="color: #ccc; margin-top: 10px; font-size: 0.9rem;">請將紅點移至中心小圓圈內</p>
 
         <div id="countdown-text" style="font-size: 5rem; color: #fff; font-weight: bold; margin-top: 10px;">3</div>
     </div>
@@ -156,11 +157,10 @@
     </div>
 
     <script>
-        // ==========================================
-        // 請務必確認這裡的網址是您的 Google Script 網址
+        // API 設定
         const API_URL = 'https://script.google.com/macros/s/AKfycbz6e0gMIXjlXzbTl0pBeIKbeN7J4F7mEZSzI0SfJ0gPkTW3HNvqp6JNy_mEMnZDwz4/exec';
-        // ==========================================
 
+        // DOM 元素
         const playerNameInput = document.getElementById('input-name');
         const setupScreen = document.getElementById('setup-screen');
         const readyScreen = document.getElementById('ready-screen');
@@ -180,13 +180,12 @@
         const actionBtn = document.getElementById('action-btn');
         const uploadStatus = document.getElementById('upload-status');
         
-        // 校準儀元件
         const calibBox = document.getElementById('calibration-box');
         const calibDot = document.getElementById('calibration-dot');
 
         let playerName = "";
         let isPlaying = false;
-        let isCalibrating = false; // 新增：是否在校準階段
+        let isCalibrating = false;
         let startTime = 0;
         let timerInterval;
         
@@ -219,7 +218,7 @@
             }
         }
 
-        // 2. 準備與校準 (核心修改)
+        // 2. 準備與校準
         function prepareGame() {
             setupScreen.style.display = 'none';
             endScreen.style.display = 'none';
@@ -228,16 +227,14 @@
             
             document.getElementById('ready-player-display').innerText = `選手：${playerName}`;
             
-            // 重置參數
             ballX = 0; ballY = 0; velocityX = 0; velocityY = 0;
             taskProgress = 0;
             progressBar.style.width = "0%";
             gameArea.classList.remove('danger');
             
-            // 開啟校準模式
             isCalibrating = true;
             window.addEventListener('deviceorientation', handleOrientation);
-            requestAnimationFrame(gameLoop); // 啟動引擎(這裡只負責畫校準氣泡)
+            requestAnimationFrame(gameLoop);
 
             let count = 3;
             const countText = document.getElementById('countdown-text');
@@ -250,10 +247,10 @@
                     if(navigator.vibrate) navigator.vibrate(50);
                 } else {
                     clearInterval(timer);
-                    isCalibrating = false; // 結束校準
+                    isCalibrating = false;
                     startGame();
                 }
-            }, 1000); // 3秒倒數
+            }, 1000);
         }
 
         function startGame() {
@@ -262,6 +259,10 @@
             hudLayer.style.display = 'block';
             actionArea.style.display = 'flex';
             progressBarContainer.style.display = 'block';
+
+            // 強制重置物理狀態 (避免倒數時累積的速度)
+            ballX = 0; ballY = 0;
+            velocityX = 0; velocityY = 0;
 
             isPlaying = true;
             startTime = Date.now();
@@ -273,49 +274,72 @@
             }, 50);
         }
 
-        // 3. 物理與校準邏輯 (合併)
+        // 3. 物理與校準邏輯
         function handleOrientation(event) {
             let x = event.gamma; 
             let y = event.beta;
+            
+            // 增加死區 (Dead Zone): 手機微小的抖動(小於2度)直接忽略
+            if (Math.abs(x) < 2) x = 0;
+            if (Math.abs(y) < 2) y = 0;
+
             if (x > 45) x = 45; if (x < -45) x = -45;
             if (y > 45) y = 45; if (y < -45) y = -45;
+            
             tiltX = x; tiltY = y;
         }
 
         function gameLoop() {
             requestAnimationFrame(gameLoop);
 
-            // A. 如果是校準階段 (倒數時)
+            // A. 校準模式
             if (isCalibrating) {
-                // 將 tiltX, tiltY 映射到氣泡位置
-                // 氣泡移動範圍小一點，讓視覺更明顯
+                // 讓校準儀的移動與實際物理係數接近
                 let dotX = tiltX * 1.5; 
                 let dotY = tiltY * 1.5;
                 
-                // 限制在框框內
-                if (dotX > 60) dotX = 60; if (dotX < -60) dotX = -60;
-                if (dotY > 60) dotY = 60; if (dotY < -60) dotY = -60;
+                // 限制範圍
+                const limit = 65;
+                if (dotX > limit) dotX = limit; if (dotX < -limit) dotX = -limit;
+                if (dotY > limit) dotY = limit; if (dotY < -limit) dotY = -limit;
 
                 calibDot.style.transform = `translate(calc(-50% + ${dotX}px), calc(-50% + ${dotY}px))`;
 
-                // 判斷是否水平 (給予視覺回饋)
+                // 判斷是否水平 (範圍 15px 內)
                 const dist = Math.sqrt(dotX*dotX + dotY*dotY);
-                if (dist < 10) {
+                if (dist < 15) {
                     calibBox.classList.add('calib-ok');
                     calibDot.classList.add('dot-ok');
                 } else {
                     calibBox.classList.remove('calib-ok');
                     calibDot.classList.remove('dot-ok');
                 }
-                return; // 校準時不執行下方物理運算
+                return; 
             }
 
-            // B. 遊戲進行階段
+            // B. 遊戲模式
             if (!isPlaying) return;
 
-            velocityX += tiltX * 0.05; 
-            velocityY += tiltY * 0.05;
-            velocityX *= 0.92; velocityY *= 0.92;
+            // --- 物理調整區 (調降靈敏度) ---
+            
+            // 1. 加速度系數：從 0.05 降到 0.025 (讓球變重，起步變慢)
+            let accelFactor = 0.025;
+            
+            // 2. 起步安全氣囊：遊戲前 1.5 秒，靈敏度再除以 3 (超慢速模式)
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            if (elapsedTime < 1.5) {
+                accelFactor = 0.008; 
+            }
+
+            velocityX += tiltX * accelFactor; 
+            velocityY += tiltY * accelFactor;
+            
+            // 3. 摩擦力：從 0.92 改為 0.90 (增加阻力，讓球更容易停下來)
+            velocityX *= 0.90; 
+            velocityY *= 0.90;
+            
+            // -----------------------------
+
             ballX += velocityX; ballY += velocityY;
 
             const dist = Math.sqrt(ballX * ballX + ballY * ballY);
@@ -333,23 +357,21 @@
             }
         }
 
-        // 4. 平衡修正後的點擊力道
+        // 4. 防作弊點擊
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
 
             let intensity = taskProgress / taskGoal;
             
-            // 力道修正：從 V6 的 15~55 降低為 8~20
-            // 基礎干擾 8，滿能量時額外加 12 -> 最高 20
-            // 這樣有感，但不至於瞬間飛出界
-            let kickForce = 8 + (intensity * 12); 
+            // 力道調整：配合變重的球，這裡的推力也稍微調整
+            // 基礎 5，滿能量時加 15 -> 最高 20
+            let kickForce = 5 + (intensity * 15); 
             
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
             if(navigator.vibrate) {
-                // 震動也稍微溫柔一點
                 navigator.vibrate(30 + (intensity * 100));
             }
 
@@ -413,7 +435,6 @@
             else setupScreen.style.display = 'flex';
         }
 
-        // 5. 排行榜 (包含日期處理)
         function fetchLeaderboard() {
             loadingText.style.display = 'block';
             leaderboardList.innerHTML = "";
@@ -436,15 +457,11 @@
                     let rank = index + 1;
                     let medal = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : rank + '.'));
                     let style = item.name === playerName ? 'background:#dff9fb;' : '';
-                    
-                    // 日期格式化
                     let dateStr = "";
                     if (item.date) {
                         let d = new Date(item.date);
-                        // 轉成 月/日 時:分 (例如 11/26 14:30)
                         dateStr = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
                     }
-
                     html += `
                         <div class="rank-row" style="${style}">
                             <div class="rank-info">
