@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V2</title>
+    <title>端水大挑戰 V3 (安全接力版)</title>
     <style>
         body {
             margin: 0;
@@ -22,6 +22,7 @@
             -webkit-user-select: none;
         }
 
+        /* 遊戲主圓盤 */
         #game-area {
             position: relative;
             width: 300px;
@@ -31,6 +32,7 @@
             border: 8px solid #bdc3c7;
             box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
             transition: border-color 0.2s, background-color 0.2s;
+            z-index: 5;
         }
 
         #ball {
@@ -43,15 +45,10 @@
             left: 50%;
             transform: translate(-50%, -50%);
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 5;
+            z-index: 6;
         }
 
-        /* 鎖定狀態的球 */
-        .ball-locked {
-            filter: grayscale(100%);
-            transform: translate(-50%, -50%) scale(0.8) !important;
-        }
-
+        /* 介面文字層 */
         #ui-layer {
             position: absolute;
             top: 40px;
@@ -74,6 +71,7 @@
             text-shadow: 1px 1px 2px black;
         }
 
+        /* 底部操作區 */
         #action-area {
             position: absolute;
             bottom: 60px;
@@ -83,6 +81,7 @@
             z-index: 20;
         }
 
+        /* 充能按鈕 */
         #action-btn {
             width: 130px;
             height: 130px;
@@ -95,7 +94,7 @@
             box-shadow: 0 10px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.4);
             cursor: pointer;
             transition: transform 0.1s;
-            display: none; /* 開始後顯示 */
+            display: none; 
         }
         
         #action-btn:active {
@@ -103,13 +102,7 @@
             box-shadow: 0 5px 0 #c0392b;
         }
 
-        #action-btn:disabled {
-            background: #95a5a6;
-            box-shadow: 0 5px 0 #7f8c8d;
-            transform: translateY(5px);
-            color: #bdc3c7;
-        }
-
+        /* 進度條 */
         #progress-bar-container {
             position: absolute;
             bottom: 30px;
@@ -129,24 +122,46 @@
             transition: width 0.1s;
         }
 
-        #start-overlay, #fail-overlay {
+        /* 全螢幕覆蓋層 (開始/傳遞/倒數/失敗) */
+        .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.95);
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 100;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
         }
 
-        #fail-overlay { display: none; background: rgba(192, 57, 43, 0.95); }
+        #start-overlay { background: rgba(44, 62, 80, 0.95); }
+        #fail-overlay { background: rgba(192, 57, 43, 0.95); display: none; }
         
+        /* 傳遞安全模式覆蓋層 */
+        #pass-overlay { 
+            background: rgba(39, 174, 96, 0.95); 
+            display: none; 
+        }
+
+        /* 倒數計時覆蓋層 */
+        #countdown-overlay {
+            background: rgba(0,0,0,0.6);
+            display: none;
+        }
+
+        #countdown-text {
+            font-size: 8rem;
+            font-weight: bold;
+            color: #f1c40f;
+            animation: pulse 0.5s infinite alternate;
+        }
+
         .btn-large {
             padding: 20px 50px;
             font-size: 1.5rem;
-            background: #2ecc71;
-            color: white;
+            background: #f1c40f;
+            color: #2c3e50;
             border: none;
             border-radius: 50px;
             font-weight: bold;
@@ -155,8 +170,30 @@
             margin-top: 20px;
         }
 
+        .btn-ready {
+            padding: 30px 40px;
+            font-size: 2rem;
+            background: white;
+            color: #27ae60;
+            border: none;
+            border-radius: 20px;
+            font-weight: 900;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            cursor: pointer;
+            animation: float 2s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
         .danger { border-color: #e74c3c !important; background: rgba(231, 76, 60, 0.3) !important; }
-        .success { border-color: #2ecc71 !important; background: rgba(46, 204, 113, 0.2) !important; }
 
     </style>
 </head>
@@ -179,16 +216,28 @@
         <button id="action-btn" ontouchstart="tapTask(event)" onclick="tapTask(event)">點我<br>充能</button>
     </div>
 
-    <div id="start-overlay">
-        <h1 style="font-size: 2.5rem; margin-bottom: 10px;">⚖️ 端水大挑戰</h1>
-        <p>1. 平放手機 2. 點擊按鈕充能 3. 傳給下一位</p>
+    <div id="start-overlay" class="overlay">
+        <h1 style="font-size: 2.5rem; margin-bottom: 10px;">⚖️ 端水大挑戰 V3</h1>
+        <p>1. 平放手機<br>2. 點擊按鈕充能<br>3. 安全傳給下一位</p>
         <button class="btn-large" onclick="requestPermission()">開始遊戲</button>
     </div>
 
-    <div id="fail-overlay">
+    <div id="pass-overlay" class="overlay">
+        <h1 style="font-size: 3rem; margin:0;">✅ 安全模式</h1>
+        <p style="font-size: 1.2rem; margin: 20px 0;">現在可以安心傳給下一位</p>
+        <p>下一位拿到後請按下方按鈕</p>
+        <button class="btn-ready" onclick="startReadySequence()">我拿好了！</button>
+    </div>
+
+    <div id="countdown-overlay" class="overlay">
+        <div id="countdown-text">3</div>
+        <p style="color:white; margin-top:20px;">穩住...</p>
+    </div>
+
+    <div id="fail-overlay" class="overlay">
         <h1 style="font-size: 4rem; margin:0;">💥</h1>
         <h2>碎掉了！</h2>
-        <button class="btn-large" style="background:#f1c40f; color:#333;" onclick="restartGame()">重新開始</button>
+        <button class="btn-large" onclick="restartGame()">重新開始</button>
     </div>
 
     <script>
@@ -200,21 +249,25 @@
         const actionBtn = document.getElementById('action-btn');
         const progressBar = document.getElementById('progress-bar');
         const progressContainer = document.getElementById('progress-bar-container');
+        
+        // Overlays
         const startOverlay = document.getElementById('start-overlay');
         const failOverlay = document.getElementById('fail-overlay');
+        const passOverlay = document.getElementById('pass-overlay');
+        const countdownOverlay = document.getElementById('countdown-overlay');
+        const countdownText = document.getElementById('countdown-text');
 
-        // 遊戲狀態變數
-        let isPlaying = false;
-        let isPassing = false; // 是否正在傳遞中
+        // 遊戲狀態
+        let isPlaying = false; // 是否正在進行物理運算
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
-        let tiltX = 0, tiltY = 0; // 原始陀螺儀數據
-        const maxRadius = 120; // 邊界 (Game 150 - Ball 25 - Padding)
+        let tiltX = 0, tiltY = 0;
+        const maxRadius = 120;
         
         let taskProgress = 0;
-        const taskGoal = 10; // 每次需要點擊的次數
+        const taskGoal = 10;
 
-        // iOS 權限請求
+        // iOS 權限
         function requestPermission() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
@@ -222,7 +275,7 @@
                         if (permissionState === 'granted') {
                             initGame();
                         } else {
-                            alert('必須允許動作偵測才能玩喔！');
+                            alert('需要動作偵測權限才能遊玩喔！');
                         }
                     })
                     .catch(console.error);
@@ -236,93 +289,75 @@
             actionBtn.style.display = 'block';
             progressContainer.style.display = 'block';
             
-            // 啟動監聽器
             window.addEventListener('deviceorientation', handleOrientation);
+            requestAnimationFrame(gameLoop); // 啟動永久引擎
             
-            // 啟動永久循環引擎 (修復 Bug 的關鍵)
-            requestAnimationFrame(gameLoop);
-            
-            resetRound();
+            startReadySequence(); // 第一次也進入倒數流程
         }
 
-        // 處理陀螺儀數據 (只存數據，不處理邏輯)
         function handleOrientation(event) {
-            // beta: 前後, gamma: 左右
-            // 針對不同裝置方向稍微調整，這裡使用基本邏輯
             let x = event.gamma; 
             let y = event.beta;
-
-            // 限制最大傾斜角度，避免球飛太快
-            if (x > 40) x = 40; if (x < -40) x = -40;
-            if (y > 40) y = 40; if (y < -40) y = -40;
-
+            // 限制最大傾斜
+            if (x > 45) x = 45; if (x < -45) x = -45;
+            if (y > 45) y = 45; if (y < -45) y = -45;
             tiltX = x;
             tiltY = y;
         }
 
-        // 核心遊戲引擎 (永遠運行)
         function gameLoop() {
-            // 持續呼叫下一幀，確保引擎不熄火
             requestAnimationFrame(gameLoop);
 
-            // 如果不是遊玩狀態 (例如傳遞中或失敗)，就不計算物理
+            // 只有在 isPlaying 為 true 時才更新球的位置
             if (!isPlaying) return;
 
             // 物理計算
             velocityX += tiltX * 0.05;
             velocityY += tiltY * 0.05;
-
-            // 摩擦力 (讓球不會永遠滑動)
-            velocityX *= 0.92;
+            velocityX *= 0.92; // 摩擦力
             velocityY *= 0.92;
 
-            // 更新位置
             ballX += velocityX;
             ballY += velocityY;
 
-            // 計算距離中心的距離
             const dist = Math.sqrt(ballX * ballX + ballY * ballY);
 
             // 邊界檢測
             if (dist > maxRadius) {
                 triggerGameOver();
             } else {
-                // 更新畫面
                 ball.style.transform = `translate(calc(-50% + ${ballX}px), calc(-50% + ${ballY}px))`;
                 
                 // 危險警示
-                if (dist > maxRadius * 0.7) {
+                if (dist > maxRadius * 0.75) {
                     gameArea.classList.add('danger');
                     statusEl.innerText = "危險！！回正！！";
                     statusEl.style.color = "#e74c3c";
                 } else {
                     gameArea.classList.remove('danger');
-                    if(taskProgress < taskGoal) {
-                        statusEl.innerText = "保持平衡並充能";
-                        statusEl.style.color = "white";
-                    }
+                    statusEl.innerText = "保持平衡並充能";
+                    statusEl.style.color = "white";
                 }
             }
         }
 
-        // 點擊任務
         function tapTask(e) {
-            e.preventDefault(); // 防止雙擊縮放
-            if (!isPlaying || isPassing) return;
+            e.preventDefault();
+            if (!isPlaying) return;
 
-            // 點擊干擾：每次點擊都給球一個隨機推力
+            // 點擊干擾
             velocityX += (Math.random() - 0.5) * 8;
             velocityY += (Math.random() - 0.5) * 8;
 
             taskProgress++;
             updateProgress();
 
-            // 按鈕動畫
+            // 按鈕反饋
             actionBtn.style.transform = "scale(0.9)";
             setTimeout(() => actionBtn.style.transform = "scale(1)", 50);
 
             if (taskProgress >= taskGoal) {
-                triggerPass();
+                triggerPassMode();
             }
         }
 
@@ -332,85 +367,65 @@
             subStatusEl.innerText = `充能: ${taskProgress}/${taskGoal}`;
         }
 
-        function triggerPass() {
-            // 進入傳遞模式
-            isPlaying = false;
-            isPassing = true;
-            
-            statusEl.innerText = "快傳給下一位！";
-            subStatusEl.innerText = "球已鎖定 3 秒";
-            statusEl.style.color = "#2ecc71";
-            gameArea.classList.add('success');
-            gameArea.classList.remove('danger');
-            
-            // 鎖定球
-            ball.classList.add('ball-locked');
-            
-            // 震動提示
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+        // --- 新的核心機制 ---
 
-            // 禁用按鈕
-            actionBtn.disabled = true;
-            actionBtn.innerText = "傳遞中...";
-            actionBtn.style.background = "#27ae60";
-
-            // 3秒後下一位開始
-            setTimeout(() => {
-                nextPlayerReady();
-            }, 3000);
+        // 1. 觸發傳遞模式 (安全模式)
+        function triggerPassMode() {
+            isPlaying = false; // 停止物理運算，球定格
+            
+            // 視覺回饋
+            passOverlay.style.display = 'flex'; // 顯示綠色全螢幕
+            if (navigator.vibrate) navigator.vibrate([100, 100, 100]); // 成功震動
         }
 
-        function nextPlayerReady() {
-            // 重置數值
+        // 2. 下一位玩家按下「我拿好了」-> 啟動倒數
+        function startReadySequence() {
+            passOverlay.style.display = 'none'; // 隱藏傳遞層
+            countdownOverlay.style.display = 'flex'; // 顯示倒數層
+            
+            // 重置球的位置到中心 (給予公平的開始)
             ballX = 0; ballY = 0;
             velocityX = 0; velocityY = 0;
+            ball.style.transform = `translate(-50%, -50%)`;
+            
+            // 重置任務進度
             taskProgress = 0;
             updateProgress();
+
+            // 倒數計時邏輯
+            let count = 3;
+            countdownText.innerText = count;
             
-            // 解除鎖定
-            ball.classList.remove('ball-locked');
-            gameArea.classList.remove('success');
-            
-            actionBtn.disabled = false;
-            actionBtn.innerText = "點我充能";
-            actionBtn.style.background = "#e74c3c";
-            
-            isPassing = false;
-            isPlaying = true; // 引擎繼續接手物理計算
-            
-            statusEl.innerText = "換你挑戰！";
-            subStatusEl.innerText = "穩住...";
-            
-            // 給予 0.5 秒的無敵時間，避免剛拿到手是歪的就死掉
-            // 透過強制歸零速度來實現
-            setTimeout(() => {
-                velocityX = 0;
-                velocityY = 0;
-            }, 500);
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countdownText.innerText = count;
+                    if (navigator.vibrate) navigator.vibrate(50);
+                } else {
+                    clearInterval(timer);
+                    startGameplay();
+                }
+            }, 1000);
         }
 
-        function resetRound() {
-            ballX = 0; ballY = 0;
-            velocityX = 0; velocityY = 0;
-            taskProgress = 0;
-            updateProgress();
-            failOverlay.style.display = 'none';
-            gameArea.classList.remove('danger');
-            ball.style.display = 'block';
+        // 3. 正式開始遊玩
+        function startGameplay() {
+            countdownOverlay.style.display = 'none';
             isPlaying = true;
-            isPassing = false;
             statusEl.innerText = "保持平衡";
-            subStatusEl.innerText = "點擊按鈕開始充能";
+            if (navigator.vibrate) navigator.vibrate(200); // 開始長震動提示
         }
 
         function triggerGameOver() {
             isPlaying = false;
-            if (navigator.vibrate) navigator.vibrate(800);
             failOverlay.style.display = 'flex';
+            if (navigator.vibrate) navigator.vibrate(1000);
         }
 
         function restartGame() {
-            resetRound();
+            failOverlay.style.display = 'none';
+            // 重新開始也進入倒數流程
+            startReadySequence();
         }
     </script>
 </body>
