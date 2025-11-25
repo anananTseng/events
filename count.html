@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>端水錦標賽 (全球聯網版)</title>
+    <style>
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background-color: #2c3e50;
+            font-family: 'Microsoft JhengHei', sans-serif;
+            touch-action: none;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            height: 100vh; color: white;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        /* --- UI 元件 --- */
+        button { border: none; outline: none; cursor: pointer; transition: transform 0.1s; }
+        button:active { transform: scale(0.95); }
+        .btn-primary { padding: 15px 30px; font-size: 1.2rem; background: #3498db; color: white; border-radius: 10px; margin: 5px; }
+        .btn-success { padding: 20px 40px; font-size: 1.5rem; background: #2ecc71; color: white; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .btn-ready { padding: 30px 40px; font-size: 2rem; background: white; color: #27ae60; border: none; border-radius: 20px; font-weight: 900; box-shadow: 0 10px 20px rgba(0,0,0,0.2); animation: float 2s infinite ease-in-out; }
+
+        /* 遊戲球體與邊框 */
+        #game-area {
+            position: relative; width: 300px; height: 300px;
+            background: rgba(255, 255, 255, 0.1); border-radius: 50%;
+            border: 8px solid #bdc3c7; box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+            display: none; z-index: 5;
+        }
+        #ball {
+            position: absolute; width: 50px; height: 50px;
+            background: radial-gradient(circle at 30% 30%, #3498db, #2980b9);
+            border-radius: 50%; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        /* 介面層 */
+        #hud-layer, #action-area, #progress-bar-container { display: none; position: absolute; width: 100%; text-align: center; z-index: 10; }
+        #hud-layer { top: 40px; }
+        #timer-display { font-size: 2rem; font-weight: bold; text-shadow: 2px 2px 0 #000; margin-top: 10px; }
+        #player-badge { background: #f1c40f; color: #333; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 1.2rem; display: inline-block;}
+        
+        #action-area { bottom: 60px; display: none; justify-content: center; z-index: 20; }
+        #action-btn { width: 130px; height: 130px; border-radius: 50%; border: 6px solid rgba(255,255,255,0.2); background: #e74c3c; color: white; font-size: 1.5rem; font-weight: bold; box-shadow: 0 10px 0 #c0392b; }
+        
+        #progress-bar-container { bottom: 30px; width: 80%; height: 15px; background: #34495e; border-radius: 10px; overflow: hidden; border: 1px solid rgba(255,255,255,0.3); }
+        #progress-bar { width: 0%; height: 100%; background: #2ecc71; transition: width 0.1s; }
+
+        /* Overlays */
+        .overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #2c3e50; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        
+        #setup-screen { z-index: 200; }
+        input[type="text"] { padding: 15px; font-size: 1.5rem; border-radius: 10px; border: none; width: 70%; text-align: center; margin-bottom: 20px;}
+        
+        #leaderboard-screen { background: #8e44ad; z-index: 300; display: none; }
+        #leaderboard-list { width: 90%; max-height: 50vh; overflow-y: auto; background: white; color: #333; border-radius: 10px; margin: 20px 0; padding: 10px; }
+        .rank-row { display: flex; justify-content: space-between; padding: 12px; border-bottom: 1px solid #eee; font-size: 1.2rem; }
+        .rank-row:nth-child(1) { background: #f1c40f; font-weight: bold; }
+
+        .loading { color: rgba(255,255,255,0.7); animation: pulse 1s infinite; }
+        @keyframes pulse { 0%{opacity:0.5;} 100%{opacity:1;} }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        .danger { border-color: #e74c3c !important; }
+
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen" class="overlay">
+        <h1>🏆 端水世界盃</h1>
+        <p style="margin-bottom: 5px;">輸入名字開始挑戰</p>
+        <input type="text" id="input-name" placeholder="你的名字/代號" maxlength="8">
+        <button class="btn-success" onclick="checkPermission()">開始比賽</button>
+        <button style="margin-top: 20px; background:none; color:#aaa; font-size:1rem;" onclick="showLeaderboard()">查看排行榜</button>
+    </div>
+
+    <div id="ready-screen" class="overlay" style="display:none; background: rgba(0,0,0,0.9);">
+        <div id="countdown-text" style="font-size: 8rem; color: #f1c40f; font-weight: bold;">3</div>
+        <p style="color: white; margin-top: 20px;">請平放手機</p>
+    </div>
+
+    <div id="fail-screen" class="overlay" style="display:none; background: rgba(192, 57, 43, 0.95);">
+        <h1 style="font-size: 4rem;">💥 碎了！</h1>
+        <button class="btn-success" onclick="location.reload()">再試一次</button>
+        <button class="btn-primary" style="margin-top:20px; background:transparent; border:1px solid white;" onclick="showLeaderboard()">查看排行榜</button>
+    </div>
+
+    <div id="leaderboard-screen" class="overlay">
+        <h1>🏅 歷史英雄榜</h1>
+        <div id="loading-text" class="loading">正在連線至雲端...</div>
+        <div id="leaderboard-list"></div>
+        <button class="btn-primary" onclick="location.reload()">回到首頁</button>
+    </div>
+
+    <div id="hud-layer">
+        <div id="player-badge">Player</div>
+        <div id="timer-display">0.00</div>
+    </div>
+
+    <div id="game-area">
+        <div id="ball"></div>
+    </div>
+
+    <div id="progress-bar-container"><div id="progress-bar"></div></div>
+    
+    <div id="action-area">
+        <button id="action-btn" ontouchstart="tapTask(event)" onclick="tapTask(event)">點擊<br>充能</button>
+    </div>
+
+    <script>
+        // ==========================================
+        //  請將您的 Google Apps Script 網址貼在下方引號內
+        // ==========================================
+        const API_URL = 'https://script.google.com/macros/s/AKfycbz6e0gMIXjlXzbTl0pBeIKbeN7J4F7mEZSzI0SfJ0gPkTW3HNvqp6JNy_mEMnZDwz4/exec'; 
+        // 例如: const API_URL = 'https://script.google.com/macros/s/AKfycbx.../exec';
+        // ==========================================
+
+        // 變數與設定
+        const playerNameInput = document.getElementById('input-name');
+        const setupScreen = document.getElementById('setup-screen');
+        const readyScreen = document.getElementById('ready-screen');
+        const failScreen = document.getElementById('fail-screen');
+        const leaderboardScreen = document.getElementById('leaderboard-screen');
+        const leaderboardList = document.getElementById('leaderboard-list');
+        const loadingText = document.getElementById('loading-text');
+
+        const gameArea = document.getElementById('game-area');
+        const ball = document.getElementById('ball');
+        const hudLayer = document.getElementById('hud-layer');
+        const actionArea = document.getElementById('action-area');
+        const progressBarContainer = document.getElementById('progress-bar-container');
+        const timerDisplay = document.getElementById('timer-display');
+        const playerBadge = document.getElementById('player-badge');
+        const progressBar = document.getElementById('progress-bar');
+        const actionBtn = document.getElementById('action-btn');
+
+        let playerName = "";
+        let isPlaying = false;
+        let startTime = 0;
+        let timerInterval;
+        let ballX = 0, ballY = 0;
+        let velocityX = 0, velocityY = 0;
+        let tiltX = 0, tiltY = 0;
+        let taskProgress = 0;
+        const taskGoal = 10;
+        const maxRadius = 120;
+
+        // 1. 權限與開始
+        function checkPermission() {
+            const name = playerNameInput.value.trim();
+            if (!name) { alert("請輸入名字！"); return; }
+            if (API_URL.includes("請貼上")) { alert("警告：您尚未設定 Google Script 網址，排行榜將無法運作！"); }
+
+            playerName = name;
+            playerBadge.innerText = playerName;
+
+            if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            startCountdown();
+                        } else {
+                            alert("需要權限才能遊玩");
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                startCountdown();
+            }
+        }
+
+        // 2. 倒數開始
+        function startCountdown() {
+            setupScreen.style.display = 'none';
+            readyScreen.style.display = 'flex';
+            
+            // 啟動引擎
+            window.addEventListener('deviceorientation', handleOrientation);
+            requestAnimationFrame(gameLoop);
+
+            let count = 3;
+            const countText = document.getElementById('countdown-text');
+            countText.innerText = count;
+
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    countText.innerText = count;
+                    if(navigator.vibrate) navigator.vibrate(50);
+                } else {
+                    clearInterval(timer);
+                    startGame();
+                }
+            }, 1000);
+        }
+
+        function startGame() {
+            readyScreen.style.display = 'none';
+            gameArea.style.display = 'block';
+            hudLayer.style.display = 'block';
+            actionArea.style.display = 'flex';
+            progressBarContainer.style.display = 'block';
+
+            isPlaying = true;
+            startTime = Date.now();
+            if(navigator.vibrate) navigator.vibrate(200);
+
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                timerDisplay.innerText = elapsed.toFixed(2);
+            }, 100);
+        }
+
+        // 3. 遊戲邏輯
+        function handleOrientation(event) {
+            let x = event.gamma; 
+            let y = event.beta;
+            if (x > 45) x = 45; if (x < -45) x = -45;
+            if (y > 45) y = 45; if (y < -45) y = -45;
+            tiltX = x; tiltY = y;
+        }
+
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+            if (!isPlaying) return;
+
+            velocityX += tiltX * 0.05; velocityY += tiltY * 0.05;
+            velocityX *= 0.92; velocityY *= 0.92;
+            ballX += velocityX; ballY += velocityY;
+
+            const dist = Math.sqrt(ballX * ballX + ballY * ballY);
+            if (dist > maxRadius) {
+                gameOver();
+            } else {
+                ball.style.transform = `translate(calc(-50% + ${ballX}px), calc(-50% + ${ballY}px))`;
+                if (dist > maxRadius * 0.75) {
+                    gameArea.classList.add('danger');
+                    timerDisplay.style.color = "#e74c3c";
+                } else {
+                    gameArea.classList.remove('danger');
+                    timerDisplay.style.color = "white";
+                }
+            }
+        }
+
+        function tapTask(e) {
+            e.preventDefault();
+            if (!isPlaying) return;
+            velocityX += (Math.random() - 0.5) * 8;
+            velocityY += (Math.random() - 0.5) * 8;
+            taskProgress++;
+            progressBar.style.width = (taskProgress / taskGoal) * 100 + "%";
+            
+            actionBtn.style.transform = "scale(0.9)";
+            setTimeout(() => actionBtn.style.transform = "scale(1)", 50);
+
+            if (taskProgress >= taskGoal) {
+                gameWin();
+            }
+        }
+
+        // 4. 遊戲結束處理
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(timerInterval);
+            if(navigator.vibrate) navigator.vibrate(1000);
+            failScreen.style.display = 'flex';
+        }
+
+        function gameWin() {
+            isPlaying = false;
+            clearInterval(timerInterval);
+            const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
+            
+            // 播放勝利動畫並上傳
+            if(navigator.vibrate) navigator.vibrate([100,100,100]);
+            
+            // 顯示排行榜畫面並開始上傳
+            showLeaderboard();
+            uploadScore(playerName, finalTime);
+        }
+
+        // 5. 雲端資料串接
+        function uploadScore(name, time) {
+            loadingText.innerText = `恭喜過關！成績 ${time} 秒\n正在上傳雲端...`;
+            loadingText.style.display = 'block';
+            leaderboardList.style.opacity = '0.5';
+
+            // 構建上傳 URL
+            const url = `${API_URL}?action=add&name=${encodeURIComponent(name)}&time=${time}`;
+
+            fetch(url)
+                .then(response => response.text())
+                .then(data => {
+                    console.log("Upload success:", data);
+                    fetchLeaderboard(); // 上傳完畢後，重新拉取最新排行榜
+                })
+                .catch(err => {
+                    console.error(err);
+                    loadingText.innerText = "上傳失敗，請檢查網路";
+                });
+        }
+
+        function showLeaderboard() {
+            setupScreen.style.display = 'none';
+            failScreen.style.display = 'none';
+            leaderboardScreen.style.display = 'flex';
+            fetchLeaderboard();
+        }
+
+        function fetchLeaderboard() {
+            loadingText.style.display = 'block';
+            loadingText.innerText = "正在讀取全球排行榜...";
+            
+            if (API_URL.includes("請貼上")) {
+                loadingText.innerText = "尚未設定資料庫連結，無法讀取。";
+                return;
+            }
+
+            fetch(`${API_URL}?action=get`)
+                .then(response => response.json())
+                .then(data => {
+                    loadingText.style.display = 'none';
+                    leaderboardList.style.opacity = '1';
+                    renderLeaderboard(data);
+                })
+                .catch(err => {
+                    console.error(err);
+                    loadingText.innerText = "讀取失敗 (請確認部署權限為 Anyone)";
+                });
+        }
+
+        function renderLeaderboard(data) {
+            let html = '';
+            if (data.length === 0) {
+                html = '<div style="text-align:center; padding:20px;">目前還沒有人挑戰成功，快來搶頭香！</div>';
+            } else {
+                data.forEach((item, index) => {
+                    let rank = index + 1;
+                    let medal = '';
+                    if (index === 0) medal = '🥇';
+                    else if (index === 1) medal = '🥈';
+                    else if (index === 2) medal = '🥉';
+                    
+                    // 如果是剛剛玩的那個人，加個標記
+                    let style = '';
+                    if (item.name === playerName) style = 'background: #dff9fb;';
+
+                    html += `
+                        <div class="rank-row" style="${style}">
+                            <span>${medal} ${rank}. ${item.name}</span>
+                            <span>${item.time} 秒</span>
+                        </div>
+                    `;
+                });
+            }
+            leaderboardList.innerHTML = html;
+        }
+
+    </script>
+</body>
+</html>
