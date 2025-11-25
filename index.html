@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V3 (安全接力版)</title>
+    <title>端水錦標賽 V4</title>
     <style>
         body {
             margin: 0;
@@ -22,7 +22,35 @@
             -webkit-user-select: none;
         }
 
-        /* 遊戲主圓盤 */
+        /* 共用按鈕樣式 */
+        button {
+            border: none;
+            outline: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+
+        .btn-primary {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            background: #3498db;
+            color: white;
+            border-radius: 10px;
+            margin: 5px;
+        }
+
+        .btn-success {
+            padding: 20px 40px;
+            font-size: 1.5rem;
+            background: #2ecc71;
+            color: white;
+            border-radius: 50px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        /* --- 遊戲區塊 --- */
         #game-area {
             position: relative;
             width: 300px;
@@ -31,8 +59,8 @@
             border-radius: 50%;
             border: 8px solid #bdc3c7;
             box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
-            transition: border-color 0.2s, background-color 0.2s;
             z-index: 5;
+            display: none; /* 預設隱藏 */
         }
 
         #ball {
@@ -45,260 +73,379 @@
             left: 50%;
             transform: translate(-50%, -50%);
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            z-index: 6;
         }
 
-        /* 介面文字層 */
-        #ui-layer {
+        /* 介面資訊 */
+        #hud-layer {
             position: absolute;
-            top: 40px;
+            top: 20px;
             width: 100%;
             text-align: center;
             pointer-events: none;
             z-index: 10;
+            display: none;
         }
 
-        #status {
-            font-size: 1.8rem;
-            font-weight: 900;
-            margin-bottom: 5px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        }
-
-        #sub-status {
-            font-size: 1.2rem;
+        #current-player-name {
+            font-size: 2rem;
+            font-weight: bold;
             color: #f1c40f;
-            text-shadow: 1px 1px 2px black;
+            text-shadow: 2px 2px 0px #000;
         }
 
-        /* 底部操作區 */
+        #timer-display {
+            font-size: 1.5rem;
+            margin-top: 5px;
+        }
+
+        /* 操作區 */
         #action-area {
             position: absolute;
-            bottom: 60px;
+            bottom: 40px;
             width: 100%;
             display: flex;
             justify-content: center;
             z-index: 20;
+            display: none;
         }
 
-        /* 充能按鈕 */
         #action-btn {
-            width: 130px;
-            height: 130px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             border: 6px solid rgba(255,255,255,0.2);
             background: #e74c3c;
             color: white;
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: bold;
-            box-shadow: 0 10px 0 #c0392b, 0 10px 20px rgba(0,0,0,0.4);
-            cursor: pointer;
-            transition: transform 0.1s;
-            display: none; 
-        }
-        
-        #action-btn:active {
-            transform: translateY(5px);
-            box-shadow: 0 5px 0 #c0392b;
+            box-shadow: 0 10px 0 #c0392b;
         }
 
-        /* 進度條 */
         #progress-bar-container {
             position: absolute;
-            bottom: 30px;
+            bottom: 20px;
             width: 80%;
             height: 15px;
             background: #34495e;
             border-radius: 10px;
             overflow: hidden;
-            border: 2px solid rgba(255,255,255,0.2);
             display: none;
+            border: 1px solid white;
         }
+        #progress-bar { width: 0%; height: 100%; background: #2ecc71; transition: width 0.1s; }
 
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: #2ecc71;
-            transition: width 0.1s;
-        }
-
-        /* 全螢幕覆蓋層 (開始/傳遞/倒數/失敗) */
+        /* --- 各種全螢幕頁面 (Overlays) --- */
         .overlay {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
+            background: #2c3e50;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             z-index: 100;
-            backdrop-filter: blur(5px);
-            transition: opacity 0.3s;
         }
 
-        #start-overlay { background: rgba(44, 62, 80, 0.95); }
-        #fail-overlay { background: rgba(192, 57, 43, 0.95); display: none; }
+        /* 1. 登記頁面 */
+        #setup-screen { z-index: 200; }
+        #player-list {
+            width: 80%;
+            height: 40vh;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            margin: 20px 0;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: left;
+        }
+        .player-tag {
+            display: inline-block;
+            background: #3498db;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        input[type="text"] {
+            padding: 10px;
+            font-size: 1.2rem;
+            border-radius: 5px;
+            border: none;
+            width: 60%;
+            text-align: center;
+        }
+
+        /* 2. 準備/接棒頁面 */
+        #ready-screen { background: rgba(39, 174, 96, 0.95); display: none; text-align: center;}
         
-        /* 傳遞安全模式覆蓋層 */
-        #pass-overlay { 
-            background: rgba(39, 174, 96, 0.95); 
-            display: none; 
-        }
+        /* 3. 倒數頁面 */
+        #countdown-screen { background: rgba(0,0,0,0.8); display: none; }
+        #countdown-text { font-size: 8rem; color: #f1c40f; font-weight: bold; }
 
-        /* 倒數計時覆蓋層 */
-        #countdown-overlay {
-            background: rgba(0,0,0,0.6);
-            display: none;
-        }
+        /* 4. 失敗頁面 */
+        #fail-screen { background: rgba(192, 57, 43, 0.95); display: none; text-align: center; }
 
-        #countdown-text {
-            font-size: 8rem;
-            font-weight: bold;
-            color: #f1c40f;
-            animation: pulse 0.5s infinite alternate;
-        }
-
-        .btn-large {
-            padding: 20px 50px;
-            font-size: 1.5rem;
-            background: #f1c40f;
-            color: #2c3e50;
-            border: none;
-            border-radius: 50px;
-            font-weight: bold;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            cursor: pointer;
-            margin-top: 20px;
-        }
-
-        .btn-ready {
-            padding: 30px 40px;
-            font-size: 2rem;
+        /* 5. 結算頁面 */
+        #result-screen { background: #8e44ad; display: none; z-index: 300; }
+        #leaderboard {
+            width: 90%;
+            max-height: 60vh;
+            overflow-y: auto;
             background: white;
-            color: #27ae60;
-            border: none;
-            border-radius: 20px;
-            font-weight: 900;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            cursor: pointer;
-            animation: float 2s infinite ease-in-out;
+            color: #333;
+            border-radius: 10px;
+            padding: 10px;
+            margin: 20px 0;
         }
-
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+        .rank-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 1.2rem;
         }
-
-        @keyframes pulse {
-            from { transform: scale(1); }
-            to { transform: scale(1.1); }
-        }
-
-        .danger { border-color: #e74c3c !important; background: rgba(231, 76, 60, 0.3) !important; }
+        .rank-row:nth-child(1) { background: #f1c40f; font-weight: bold; } /* 冠軍金色 */
+        .rank-row:nth-child(2) { background: #bdc3c7; } /* 亞軍銀色 */
+        .rank-row:nth-child(3) { background: #d35400; color: white; } /* 季軍銅色 */
+        
+        .danger { border-color: #e74c3c !important; }
 
     </style>
 </head>
 <body>
 
-    <div id="ui-layer">
-        <div id="status">準備開始</div>
-        <div id="sub-status">請保持手機水平</div>
+    <div id="setup-screen" class="overlay">
+        <h1>📝 參賽者登記</h1>
+        <div style="width: 100%; text-align: center;">
+            <input type="text" id="input-name" placeholder="輸入名字" maxlength="6">
+            <button class="btn-primary" onclick="addPlayer()">加入</button>
+        </div>
+        <div id="player-list"></div>
+        <p style="color: #bdc3c7; font-size: 0.9rem;">至少需要 1 人</p>
+        <button class="btn-success" onclick="startTournament()">開始錦標賽</button>
+    </div>
+
+    <div id="ready-screen" class="overlay">
+        <h2 style="margin:0;">下一位選手</h2>
+        <h1 id="ready-player-name" style="font-size: 4rem; margin: 20px 0; color: #fff;"></h1>
+        <p>請接過手機，保持水平</p>
+        <button class="btn-success" style="background: white; color: #27ae60;" onclick="startCountdownSequence()">我準備好了！</button>
+    </div>
+
+    <div id="countdown-screen" class="overlay">
+        <div id="countdown-text">3</div>
+    </div>
+
+    <div id="fail-screen" class="overlay">
+        <h1 style="font-size: 4rem;">💔 碎了！</h1>
+        <p style="font-size: 1.5rem;">成績：淘汰</p>
+        <button class="btn-success" onclick="nextPlayer()">換下一位</button>
+    </div>
+
+    <div id="result-screen" class="overlay">
+        <h1>🏆 比賽結果</h1>
+        <div id="leaderboard">
+            </div>
+        <button class="btn-primary" onclick="location.reload()">重新一局</button>
+    </div>
+
+    <div id="hud-layer">
+        <div id="current-player-name">Player</div>
+        <div id="timer-display">0.00 秒</div>
     </div>
 
     <div id="game-area">
         <div id="ball"></div>
     </div>
 
-    <div id="progress-bar-container">
-        <div id="progress-bar"></div>
-    </div>
-
+    <div id="progress-bar-container"><div id="progress-bar"></div></div>
+    
     <div id="action-area">
-        <button id="action-btn" ontouchstart="tapTask(event)" onclick="tapTask(event)">點我<br>充能</button>
-    </div>
-
-    <div id="start-overlay" class="overlay">
-        <h1 style="font-size: 2.5rem; margin-bottom: 10px;">⚖️ 端水大挑戰 V3</h1>
-        <p>1. 平放手機<br>2. 點擊按鈕充能<br>3. 安全傳給下一位</p>
-        <button class="btn-large" onclick="requestPermission()">開始遊戲</button>
-    </div>
-
-    <div id="pass-overlay" class="overlay">
-        <h1 style="font-size: 3rem; margin:0;">✅ 安全模式</h1>
-        <p style="font-size: 1.2rem; margin: 20px 0;">現在可以安心傳給下一位</p>
-        <p>下一位拿到後請按下方按鈕</p>
-        <button class="btn-ready" onclick="startReadySequence()">我拿好了！</button>
-    </div>
-
-    <div id="countdown-overlay" class="overlay">
-        <div id="countdown-text">3</div>
-        <p style="color:white; margin-top:20px;">穩住...</p>
-    </div>
-
-    <div id="fail-overlay" class="overlay">
-        <h1 style="font-size: 4rem; margin:0;">💥</h1>
-        <h2>碎掉了！</h2>
-        <button class="btn-large" onclick="restartGame()">重新開始</button>
+        <button id="action-btn" ontouchstart="tapTask(event)" onclick="tapTask(event)">點擊<br>充能</button>
     </div>
 
     <script>
-        // DOM 元素
-        const ball = document.getElementById('ball');
-        const gameArea = document.getElementById('game-area');
-        const statusEl = document.getElementById('status');
-        const subStatusEl = document.getElementById('sub-status');
-        const actionBtn = document.getElementById('action-btn');
-        const progressBar = document.getElementById('progress-bar');
-        const progressContainer = document.getElementById('progress-bar-container');
-        
-        // Overlays
-        const startOverlay = document.getElementById('start-overlay');
-        const failOverlay = document.getElementById('fail-overlay');
-        const passOverlay = document.getElementById('pass-overlay');
-        const countdownOverlay = document.getElementById('countdown-overlay');
-        const countdownText = document.getElementById('countdown-text');
+        // --- 資料結構 ---
+        let players = []; // { name: "Andy", time: 999, status: "pending/success/fail" }
+        let currentPlayerIndex = 0;
+        let startTime = 0;
+        let timerInterval;
 
-        // 遊戲狀態
-        let isPlaying = false; // 是否正在進行物理運算
+        // --- DOM ---
+        const setupScreen = document.getElementById('setup-screen');
+        const readyScreen = document.getElementById('ready-screen');
+        const countdownScreen = document.getElementById('countdown-screen');
+        const failScreen = document.getElementById('fail-screen');
+        const resultScreen = document.getElementById('result-screen');
+        
+        const gameArea = document.getElementById('game-area');
+        const hudLayer = document.getElementById('hud-layer');
+        const actionArea = document.getElementById('action-area');
+        const progressBarContainer = document.getElementById('progress-bar-container');
+        
+        const inputName = document.getElementById('input-name');
+        const playerList = document.getElementById('player-list');
+        const readyPlayerName = document.getElementById('ready-player-name');
+        
+        // 遊戲物理變數
+        const ball = document.getElementById('ball');
+        const progressBar = document.getElementById('progress-bar');
+        const timerDisplay = document.getElementById('timer-display');
+        const actionBtn = document.getElementById('action-btn');
+
+        let isPlaying = false;
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
         let tiltX = 0, tiltY = 0;
-        const maxRadius = 120;
-        
         let taskProgress = 0;
         const taskGoal = 10;
+        const maxRadius = 120;
 
-        // iOS 權限
-        function requestPermission() {
+        // --- 1. 登記階段邏輯 ---
+        function addPlayer() {
+            const name = inputName.value.trim();
+            if (name) {
+                players.push({ name: name, time: 0, status: 'pending' });
+                updatePlayerList();
+                inputName.value = '';
+                inputName.focus();
+            }
+        }
+
+        function updatePlayerList() {
+            playerList.innerHTML = players.map((p, i) => 
+                `<span class="player-tag">${i+1}. ${p.name}</span>`
+            ).join('');
+        }
+
+        function startTournament() {
+            if (players.length === 0) {
+                alert("請至少輸入一位玩家！");
+                return;
+            }
+            // 請求權限
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
-                            initGame();
+                            beginGameFlow();
                         } else {
-                            alert('需要動作偵測權限才能遊玩喔！');
+                            alert("需要權限才能玩！");
                         }
                     })
                     .catch(console.error);
             } else {
-                initGame();
+                beginGameFlow();
             }
         }
 
-        function initGame() {
-            startOverlay.style.display = 'none';
-            actionBtn.style.display = 'block';
-            progressContainer.style.display = 'block';
-            
+        function beginGameFlow() {
+            setupScreen.style.display = 'none';
+            // 啟動物理引擎
             window.addEventListener('deviceorientation', handleOrientation);
-            requestAnimationFrame(gameLoop); // 啟動永久引擎
+            requestAnimationFrame(gameLoop);
             
-            startReadySequence(); // 第一次也進入倒數流程
+            currentPlayerIndex = 0;
+            showReadyScreen();
         }
 
+        // --- 2. 回合流程控制 ---
+
+        function showReadyScreen() {
+            // 隱藏遊戲介面
+            gameArea.style.display = 'none';
+            hudLayer.style.display = 'none';
+            actionArea.style.display = 'none';
+            progressBarContainer.style.display = 'none';
+            failScreen.style.display = 'none';
+            
+            // 顯示準備畫面
+            const player = players[currentPlayerIndex];
+            readyPlayerName.innerText = player.name;
+            readyScreen.style.display = 'flex';
+        }
+
+        function startCountdownSequence() {
+            readyScreen.style.display = 'none';
+            countdownScreen.style.display = 'flex';
+            
+            // 重置遊戲參數
+            ballX = 0; ballY = 0; velocityX = 0; velocityY = 0;
+            taskProgress = 0;
+            updateProgress();
+            gameArea.classList.remove('danger');
+            
+            let count = 3;
+            document.getElementById('countdown-text').innerText = count;
+            
+            const timer = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    document.getElementById('countdown-text').innerText = count;
+                    if(navigator.vibrate) navigator.vibrate(50);
+                } else {
+                    clearInterval(timer);
+                    startGameplay();
+                }
+            }, 1000);
+        }
+
+        function startGameplay() {
+            countdownScreen.style.display = 'none';
+            
+            // 顯示遊戲UI
+            gameArea.style.display = 'block';
+            hudLayer.style.display = 'block';
+            actionArea.style.display = 'flex';
+            progressBarContainer.style.display = 'block';
+            document.getElementById('current-player-name').innerText = players[currentPlayerIndex].name;
+            
+            isPlaying = true;
+            startTime = Date.now();
+            
+            // 啟動計時器顯示
+            timerInterval = setInterval(() => {
+                const elapsed = (Date.now() - startTime) / 1000;
+                timerDisplay.innerText = elapsed.toFixed(2) + " 秒";
+            }, 100);
+
+            if(navigator.vibrate) navigator.vibrate(200);
+        }
+
+        function finishTurn(success) {
+            isPlaying = false;
+            clearInterval(timerInterval);
+            
+            const player = players[currentPlayerIndex];
+            
+            if (success) {
+                const finalTime = (Date.now() - startTime) / 1000;
+                player.time = finalTime;
+                player.status = 'success';
+                // 直接換下一位，或顯示過關動畫 (這裡簡化直接換人)
+                nextPlayer();
+            } else {
+                player.time = 9999; // 懲罰時間
+                player.status = 'fail';
+                if(navigator.vibrate) navigator.vibrate(1000);
+                failScreen.style.display = 'flex';
+            }
+        }
+
+        function nextPlayer() {
+            currentPlayerIndex++;
+            if (currentPlayerIndex < players.length) {
+                showReadyScreen();
+            } else {
+                showResultScreen();
+            }
+        }
+
+        // --- 3. 遊戲物理與操作 (繼承自 V3) ---
+        
         function handleOrientation(event) {
             let x = event.gamma; 
             let y = event.beta;
-            // 限制最大傾斜
             if (x > 45) x = 45; if (x < -45) x = -45;
             if (y > 45) y = 45; if (y < -45) y = -45;
             tiltX = x;
@@ -307,36 +454,27 @@
 
         function gameLoop() {
             requestAnimationFrame(gameLoop);
-
-            // 只有在 isPlaying 為 true 時才更新球的位置
             if (!isPlaying) return;
 
-            // 物理計算
             velocityX += tiltX * 0.05;
             velocityY += tiltY * 0.05;
-            velocityX *= 0.92; // 摩擦力
+            velocityX *= 0.92;
             velocityY *= 0.92;
-
             ballX += velocityX;
             ballY += velocityY;
 
             const dist = Math.sqrt(ballX * ballX + ballY * ballY);
 
-            // 邊界檢測
             if (dist > maxRadius) {
-                triggerGameOver();
+                finishTurn(false); // 失敗
             } else {
                 ball.style.transform = `translate(calc(-50% + ${ballX}px), calc(-50% + ${ballY}px))`;
-                
-                // 危險警示
                 if (dist > maxRadius * 0.75) {
                     gameArea.classList.add('danger');
-                    statusEl.innerText = "危險！！回正！！";
-                    statusEl.style.color = "#e74c3c";
+                    timerDisplay.style.color = "#e74c3c";
                 } else {
                     gameArea.classList.remove('danger');
-                    statusEl.innerText = "保持平衡並充能";
-                    statusEl.style.color = "white";
+                    timerDisplay.style.color = "white";
                 }
             }
         }
@@ -345,88 +483,56 @@
             e.preventDefault();
             if (!isPlaying) return;
 
-            // 點擊干擾
-            velocityX += (Math.random() - 0.5) * 8;
+            velocityX += (Math.random() - 0.5) * 8; // 點擊干擾
             velocityY += (Math.random() - 0.5) * 8;
-
             taskProgress++;
             updateProgress();
 
-            // 按鈕反饋
+            // 按鈕動畫
             actionBtn.style.transform = "scale(0.9)";
             setTimeout(() => actionBtn.style.transform = "scale(1)", 50);
 
             if (taskProgress >= taskGoal) {
-                triggerPassMode();
+                finishTurn(true); // 成功
             }
         }
 
         function updateProgress() {
             const percent = (taskProgress / taskGoal) * 100;
             progressBar.style.width = percent + "%";
-            subStatusEl.innerText = `充能: ${taskProgress}/${taskGoal}`;
         }
 
-        // --- 新的核心機制 ---
+        // --- 4. 結算排行榜 ---
+        function showResultScreen() {
+            gameArea.style.display = 'none';
+            hudLayer.style.display = 'none';
+            actionArea.style.display = 'none';
+            progressBarContainer.style.display = 'none';
+            failScreen.style.display = 'none';
+            resultScreen.style.display = 'flex';
 
-        // 1. 觸發傳遞模式 (安全模式)
-        function triggerPassMode() {
-            isPlaying = false; // 停止物理運算，球定格
-            
-            // 視覺回饋
-            passOverlay.style.display = 'flex'; // 顯示綠色全螢幕
-            if (navigator.vibrate) navigator.vibrate([100, 100, 100]); // 成功震動
+            // 排序：成功的按時間排，失敗的排後面
+            players.sort((a, b) => a.time - b.time);
+
+            let html = '';
+            players.forEach((p, index) => {
+                let timeStr = p.status === 'fail' ? '淘汰' : p.time.toFixed(2) + '秒';
+                let rank = index + 1;
+                let medal = '';
+                if (index === 0) medal = '🥇';
+                if (index === 1) medal = '🥈';
+                if (index === 2) medal = '🥉';
+
+                html += `
+                    <div class="rank-row">
+                        <span>${medal} ${rank}. ${p.name}</span>
+                        <span>${timeStr}</span>
+                    </div>
+                `;
+            });
+            document.getElementById('leaderboard').innerHTML = html;
         }
 
-        // 2. 下一位玩家按下「我拿好了」-> 啟動倒數
-        function startReadySequence() {
-            passOverlay.style.display = 'none'; // 隱藏傳遞層
-            countdownOverlay.style.display = 'flex'; // 顯示倒數層
-            
-            // 重置球的位置到中心 (給予公平的開始)
-            ballX = 0; ballY = 0;
-            velocityX = 0; velocityY = 0;
-            ball.style.transform = `translate(-50%, -50%)`;
-            
-            // 重置任務進度
-            taskProgress = 0;
-            updateProgress();
-
-            // 倒數計時邏輯
-            let count = 3;
-            countdownText.innerText = count;
-            
-            const timer = setInterval(() => {
-                count--;
-                if (count > 0) {
-                    countdownText.innerText = count;
-                    if (navigator.vibrate) navigator.vibrate(50);
-                } else {
-                    clearInterval(timer);
-                    startGameplay();
-                }
-            }, 1000);
-        }
-
-        // 3. 正式開始遊玩
-        function startGameplay() {
-            countdownOverlay.style.display = 'none';
-            isPlaying = true;
-            statusEl.innerText = "保持平衡";
-            if (navigator.vibrate) navigator.vibrate(200); // 開始長震動提示
-        }
-
-        function triggerGameOver() {
-            isPlaying = false;
-            failOverlay.style.display = 'flex';
-            if (navigator.vibrate) navigator.vibrate(1000);
-        }
-
-        function restartGame() {
-            failOverlay.style.display = 'none';
-            // 重新開始也進入倒數流程
-            startReadySequence();
-        }
     </script>
 </body>
 </html>
