@@ -3,21 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰</title>
+    <title>端水大挑戰 V2</title>
     <style>
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
             background-color: #2c3e50;
-            font-family: 'Arial', sans-serif;
-            touch-action: none; /* 禁止縮放 */
+            font-family: 'Microsoft JhengHei', sans-serif;
+            touch-action: none;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
             color: white;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         #game-area {
@@ -26,345 +28,33 @@
             height: 300px;
             background: rgba(255, 255, 255, 0.1);
             border-radius: 50%;
-            border: 5px solid #bdc3c7;
-            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
-            transition: border-color 0.2s;
+            border: 8px solid #bdc3c7;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.5);
+            transition: border-color 0.2s, background-color 0.2s;
         }
 
         #ball {
             position: absolute;
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             background: radial-gradient(circle at 30% 30%, #3498db, #2980b9);
             border-radius: 50%;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            transition: top 0.1s, left 0.1s; /* 平滑移動 */
+            z-index: 5;
         }
 
-        /* 中心目標區 */
-        #target-zone {
-            position: absolute;
-            width: 80px;
-            height: 80px;
-            border: 2px dashed rgba(255,255,255,0.3);
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        /* 鎖定狀態的球 */
+        .ball-locked {
+            filter: grayscale(100%);
+            transform: translate(-50%, -50%) scale(0.8) !important;
         }
 
         #ui-layer {
             position: absolute;
-            top: 20px;
+            top: 40px;
             width: 100%;
             text-align: center;
-            pointer-events: none; /* 讓點擊穿透 */
-            z-index: 10;
-        }
-
-        #status {
-            font-size: 1.5rem;
-            font-weight: bold;
-            margin-bottom: 5px;
-            text-shadow: 1px 1px 2px black;
-        }
-
-        #sub-status {
-            font-size: 1rem;
-            color: #f1c40f;
-            text-shadow: 1px 1px 2px black;
-        }
-
-        /* 任務按鈕區 */
-        #action-area {
-            position: absolute;
-            bottom: 50px;
-            width: 100%;
-            text-align: center;
-            z-index: 20;
-        }
-
-        #action-btn {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: none;
-            background: #e74c3c;
-            color: white;
-            font-size: 1.2rem;
-            font-weight: bold;
-            box-shadow: 0 5px 0 #c0392b;
-            cursor: pointer;
-            display: none; /* 遊戲開始才顯示 */
-        }
-        
-        #action-btn:active {
-            transform: translateY(5px);
-            box-shadow: 0 0 0 #c0392b;
-        }
-
-        /* 進度條 */
-        #progress-bar-container {
-            position: absolute;
-            bottom: 20px;
-            width: 80%;
-            height: 20px;
-            background: #34495e;
-            border-radius: 10px;
-            overflow: hidden;
-            display: none;
-        }
-
-        #progress-bar {
-            width: 0%;
-            height: 100%;
-            background: #2ecc71;
-            transition: width 0.1s;
-        }
-
-        /* 啟動按鈕 */
-        #start-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 100;
-        }
-        
-        #start-btn {
-            padding: 20px 40px;
-            font-size: 1.5rem;
-            background: #27ae60;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-
-        .danger { border-color: #e74c3c !important; background: rgba(231, 76, 60, 0.2) !important; }
-        .safe { border-color: #2ecc71 !important; }
-
-    </style>
-</head>
-<body>
-
-    <div id="ui-layer">
-        <div id="status">保持平衡！</div>
-        <div id="sub-status">球不能碰到邊緣</div>
-    </div>
-
-    <div id="game-area">
-        <div id="target-zone"></div>
-        <div id="ball"></div>
-    </div>
-
-    <div id="progress-bar-container">
-        <div id="progress-bar"></div>
-    </div>
-
-    <div id="action-area">
-        <button id="action-btn" ontouchstart="tapTask(event)" onclick="tapTask(event)">點我<br>充能</button>
-    </div>
-
-    <div id="start-overlay">
-        <h1>⚖️ 端水大挑戰</h1>
-        <p style="padding:0 20px; text-align:center;">請平放手機，確保「允許動作偵測」</p>
-        <button id="start-btn" onclick="requestPermission()">開始遊戲</button>
-    </div>
-
-    <script>
-        // 變數設定
-        const ball = document.getElementById('ball');
-        const gameArea = document.getElementById('game-area');
-        const statusEl = document.getElementById('status');
-        const subStatusEl = document.getElementById('sub-status');
-        const actionBtn = document.getElementById('action-btn');
-        const progressBar = document.getElementById('progress-bar');
-        const progressContainer = document.getElementById('progress-bar-container');
-        const startOverlay = document.getElementById('start-overlay');
-
-        let isPlaying = false;
-        let ballX = 0; // 0 是中心
-        let ballY = 0; // 0 是中心
-        let velocityX = 0;
-        let velocityY = 0;
-        const maxRadius = 130; // 邊界半徑 (gameArea 150 - ball 20)
-        
-        let taskProgress = 0;
-        const taskGoal = 10; // 點10下才能傳
-        let currentLevel = 1;
-
-        // 1. iOS 權限請求 (關鍵)
-        function requestPermission() {
-            if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                DeviceOrientationEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            startGame();
-                        } else {
-                            alert('需要動作偵測權限才能遊玩喔！');
-                        }
-                    })
-                    .catch(console.error);
-            } else {
-                // Android 或非 iOS 13+
-                startGame();
-            }
-        }
-
-        function startGame() {
-            startOverlay.style.display = 'none';
-            actionBtn.style.display = 'block';
-            progressContainer.style.display = 'block';
-            isPlaying = true;
-            resetRound();
-            
-            window.addEventListener('deviceorientation', handleOrientation);
-            gameLoop();
-        }
-
-        // 2. 處理陀螺儀數據
-        function handleOrientation(event) {
-            if (!isPlaying) return;
-
-            // beta: 前後傾斜 (-180 ~ 180)
-            // gamma: 左右傾斜 (-90 ~ 90)
-            let x = event.gamma; 
-            let y = event.beta;
-
-            // 限制最大傾斜角度以免球飛太快
-            if (x > 40) x = 40;
-            if (x < -40) x = -40;
-            if (y > 40) y = 40;
-            if (y < -40) y = -40;
-
-            // 加速度計算 (簡單物理模擬)
-            velocityX += x * 0.05;
-            velocityY += y * 0.05;
-        }
-
-        // 3. 遊戲主迴圈
-        function gameLoop() {
-            if (!isPlaying) return;
-
-            // 摩擦力
-            velocityX *= 0.95;
-            velocityY *= 0.95;
-
-            // 更新位置
-            ballX += velocityX;
-            ballY += velocityY;
-
-            // 計算距離中心的距離
-            const dist = Math.sqrt(ballX * ballX + ballY * ballY);
-
-            // 邊界檢測
-            if (dist > maxRadius) {
-                gameOver();
-            } else {
-                // 更新畫面
-                ball.style.transform = `translate(calc(-50% + ${ballX}px), calc(-50% + ${ballY}px))`;
-                
-                // 視覺回饋：越靠近邊緣越紅
-                if (dist > maxRadius * 0.7) {
-                    gameArea.classList.add('danger');
-                    statusEl.innerText = "危險！！回正！！";
-                    statusEl.style.color = "#e74c3c";
-                    // 觸覺回饋：靠近邊緣微震動
-                    if (navigator.vibrate && Math.random() > 0.8) navigator.vibrate(10);
-                } else {
-                    gameArea.classList.remove('danger');
-                    statusEl.innerText = "穩定充能中...";
-                    statusEl.style.color = "white";
-                }
-            }
-
-            requestAnimationFrame(gameLoop);
-        }
-
-        // 4. 點擊任務機制
-        function tapTask(e) {
-            e.preventDefault(); // 防止雙擊放大
-            if (!isPlaying) return;
-
-            // 增加難度：點擊時會給球一個隨機的小震動，干擾平衡
-            velocityX += (Math.random() - 0.5) * 5;
-            velocityY += (Math.random() - 0.5) * 5;
-
-            taskProgress++;
-            updateProgress();
-
-            // 點擊回饋
-            actionBtn.style.transform = "scale(0.9)";
-            setTimeout(() => actionBtn.style.transform = "scale(1)", 50);
-
-            if (taskProgress >= taskGoal) {
-                passToNext();
-            }
-        }
-
-        function updateProgress() {
-            const percent = (taskProgress / taskGoal) * 100;
-            progressBar.style.width = percent + "%";
-            subStatusEl.innerText = `充能進度: ${taskProgress}/${taskGoal}`;
-        }
-
-        function passToNext() {
-            // 過關動畫
-            statusEl.innerText = "充能完畢！快傳！";
-            statusEl.style.color = "#2ecc71";
-            gameArea.classList.add('safe');
-            
-            if (navigator.vibrate) navigator.vibrate([100, 50, 100]); // 成功震動
-
-            // 暫停一下讓玩家傳遞 (鎖定球1.5秒)
-            isPlaying = false; 
-            actionBtn.disabled = true;
-            actionBtn.innerText = "傳給下一位";
-            actionBtn.style.background = "#2ecc71";
-
-            setTimeout(() => {
-                resetRound();
-                isPlaying = true;
-                actionBtn.disabled = false;
-                actionBtn.innerText = "點我充能";
-                actionBtn.style.background = "#e74c3c";
-                gameArea.classList.remove('safe');
-            }, 2000);
-        }
-
-        function resetRound() {
-            ballX = 0;
-            ballY = 0;
-            velocityX = 0;
-            velocityY = 0;
-            taskProgress = 0;
-            ball.style.transform = `translate(-50%, -50%)`;
-            updateProgress();
-        }
-
-        function gameOver() {
-            isPlaying = false;
-            statusEl.innerText = "碎掉了！！！";
-            subStatusEl.innerText = "請接受懲罰";
-            gameArea.style.backgroundColor = "#c0392b";
-            ball.style.display = 'none'; // 球消失
-            
-            // 死亡長震動
-            if (navigator.vibrate) navigator.vibrate(1000);
-
-            actionBtn.innerText = "重新開始";
-            actionBtn.style.background = "#34495e";
-            actionBtn.onclick = function() {
-                location.reload();
-            };
-        }
-    </script>
-</body>
-</html>
+            pointer-
