@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V11 (最終修正版)</title>
+    <title>端水大挑戰 V12 (完美平衡版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -104,7 +104,7 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">V11.0 穩定修復版</p>
+        <p style="margin-bottom: 5px; color:#aaa;">V12.0 完美平衡版</p>
         <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
         <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
@@ -157,7 +157,7 @@
     </div>
 
     <script>
-        // API 設定
+        // API 設定 (已填入您的網址)
         const API_URL = 'https://script.google.com/macros/s/AKfycbz6e0gMIXjlXzbTl0pBeIKbeN7J4F7mEZSzI0SfJ0gPkTW3HNvqp6JNy_mEMnZDwz4/exec';
 
         // DOM 元素
@@ -188,7 +188,7 @@
         let isCalibrating = false;
         let startTime = 0;
         let timerInterval;
-        let animationFrameId; // 新增：用於管理動畫迴圈 ID
+        let animationFrameId; // 核心變數：防止引擎堆疊
         
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
@@ -197,7 +197,7 @@
         const taskGoal = 20; 
         const maxRadius = 120;
 
-        // 1. 全域監聽 (修正：只加入一次監聽器，避免累加)
+        // 1. 全域監聽
         window.addEventListener('deviceorientation', handleOrientation);
 
         // 2. 權限
@@ -222,7 +222,7 @@
             }
         }
 
-        // 3. 準備與校準 (修正：嚴格管理迴圈)
+        // 3. 準備與校準
         function prepareGame() {
             setupScreen.style.display = 'none';
             endScreen.style.display = 'none';
@@ -240,7 +240,7 @@
             isCalibrating = true;
             isPlaying = false;
 
-            // 修正：先取消舊的迴圈，再啟動新的，確保只有一個引擎在跑
+            // 確保停止舊迴圈，啟動新迴圈
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             gameLoop();
 
@@ -292,7 +292,6 @@
         }
 
         function gameLoop() {
-            // 每次執行都記錄 ID
             animationFrameId = requestAnimationFrame(gameLoop);
 
             // A. 校準模式
@@ -317,6 +316,7 @@
             // B. 遊戲模式
             if (!isPlaying) return;
 
+            // 經典手感物理參數
             velocityX += tiltX * 0.05; 
             velocityY += tiltY * 0.05;
             velocityX *= 0.92; 
@@ -339,16 +339,25 @@
             }
         }
 
+        // 4. 點擊任務 (漸進式難度 - 溫和版)
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
 
-            // 固定干擾，不隨進度增加
-            let kickForce = 5; 
+            // 計算目前進度 (0.0 ~ 1.0)
+            let intensity = taskProgress / taskGoal;
+
+            // 力道公式：基礎 5 (很輕) -> 滿能 15 (稍微明顯)
+            // 比較：之前太難的版本是加到 55
+            let kickForce = 5 + (intensity * 10); 
+            
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
-            if(navigator.vibrate) navigator.vibrate(50);
+            // 震動回饋：50ms (短) -> 100ms (稍長)
+            if(navigator.vibrate) {
+                navigator.vibrate(50 + (intensity * 50));
+            }
 
             taskProgress++;
             progressBar.style.width = (taskProgress / taskGoal) * 100 + "%";
@@ -365,7 +374,6 @@
             isPlaying = false;
             clearInterval(timerInterval);
             
-            // 修正：遊戲結束時停止引擎，避免在背景空轉
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             
             const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
@@ -447,12 +455,3 @@
                                 <span class="rank-date">${dateStr}</span>
                             </div>
                             <span style="font-weight:bold; color:#34495e;">${item.time} 秒</span>
-                        </div>
-                    `;
-                });
-            }
-            leaderboardList.innerHTML = html;
-        }
-    </script>
-</body>
-</html>
