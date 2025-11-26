@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V9 (經典手感版)</title>
+    <title>端水大挑戰 V10 (親子同樂版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -104,7 +104,7 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">V9.0 經典手感版</p>
+        <p style="margin-bottom: 5px; color:#aaa;">V10.0 親子同樂版</p>
         <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
         <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
@@ -260,7 +260,6 @@
             actionArea.style.display = 'flex';
             progressBarContainer.style.display = 'block';
 
-            // 確保重置
             ballX = 0; ballY = 0;
             velocityX = 0; velocityY = 0;
 
@@ -274,13 +273,12 @@
             }, 50);
         }
 
-        // 3. 物理與校準邏輯 (還原為最原始版本)
+        // 3. 物理邏輯 (回歸初始簡易設定)
         function handleOrientation(event) {
             let x = event.gamma; 
             let y = event.beta;
             
-            // 移除所有死區判斷，保持最原始靈敏度
-            
+            // 限制最大角度，避免小朋友拿太歪飛太快
             if (x > 45) x = 45; if (x < -45) x = -45;
             if (y > 45) y = 45; if (y < -45) y = -45;
             
@@ -290,7 +288,7 @@
         function gameLoop() {
             requestAnimationFrame(gameLoop);
 
-            // A. 校準模式
+            // A. 校準模式 (視覺輔助)
             if (isCalibrating) {
                 let dotX = tiltX * 1.5; 
                 let dotY = tiltY * 1.5;
@@ -312,13 +310,12 @@
             // B. 遊戲模式
             if (!isPlaying) return;
 
-            // --- 物理還原區 ---
+            // --- 物理參數：回歸 V2/V3 設定 (最容易上手) ---
             
-            // 使用最經典的係數：0.05 (靈敏)
             velocityX += tiltX * 0.05; 
             velocityY += tiltY * 0.05;
             
-            // 使用最經典的摩擦力：0.92 (流暢)
+            // 摩擦力 0.92 (好煞車，不滑)
             velocityX *= 0.92; 
             velocityY *= 0.92;
             
@@ -341,22 +338,23 @@
             }
         }
 
-        // 4. 防作弊點擊 (保持適中難度)
+        // 4. 點擊任務 (取消所有難度遞增)
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
 
-            let intensity = taskProgress / taskGoal;
+            // 移除 intensity 計算
             
-            // 配合輕盈的物理引擎，踢球力道不能太強，否則必死
-            // 設定為 8 ~ 20 (適中)
-            let kickForce = 8 + (intensity * 12); 
+            // 固定微小的干擾 (數值固定為 5)
+            // 這只是為了讓球有點"生氣"的感覺，不會真的踢飛
+            let kickForce = 5; 
             
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
+            // 固定微小的震動 (50ms)
             if(navigator.vibrate) {
-                navigator.vibrate(30 + (intensity * 100));
+                navigator.vibrate(50);
             }
 
             taskProgress++;
