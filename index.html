@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V10 (親子同樂版)</title>
+    <title>端水大挑戰 V11 (最終修正版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -104,7 +104,7 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">V10.0 親子同樂版</p>
+        <p style="margin-bottom: 5px; color:#aaa;">V11.0 穩定修復版</p>
         <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
         <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
@@ -188,6 +188,7 @@
         let isCalibrating = false;
         let startTime = 0;
         let timerInterval;
+        let animationFrameId; // 新增：用於管理動畫迴圈 ID
         
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
@@ -196,7 +197,10 @@
         const taskGoal = 20; 
         const maxRadius = 120;
 
-        // 1. 權限
+        // 1. 全域監聽 (修正：只加入一次監聽器，避免累加)
+        window.addEventListener('deviceorientation', handleOrientation);
+
+        // 2. 權限
         function checkPermission() {
             const name = playerNameInput.value.trim();
             if (!name) { alert("請先輸入名字！"); return; }
@@ -218,7 +222,7 @@
             }
         }
 
-        // 2. 準備與校準
+        // 3. 準備與校準 (修正：嚴格管理迴圈)
         function prepareGame() {
             setupScreen.style.display = 'none';
             endScreen.style.display = 'none';
@@ -227,14 +231,18 @@
             
             document.getElementById('ready-player-display').innerText = `選手：${playerName}`;
             
+            // 重置參數
             ballX = 0; ballY = 0; velocityX = 0; velocityY = 0;
             taskProgress = 0;
             progressBar.style.width = "0%";
             gameArea.classList.remove('danger');
             
             isCalibrating = true;
-            window.addEventListener('deviceorientation', handleOrientation);
-            requestAnimationFrame(gameLoop);
+            isPlaying = false;
+
+            // 修正：先取消舊的迴圈，再啟動新的，確保只有一個引擎在跑
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            gameLoop();
 
             let count = 3;
             const countText = document.getElementById('countdown-text');
@@ -273,12 +281,10 @@
             }, 50);
         }
 
-        // 3. 物理邏輯 (回歸初始簡易設定)
         function handleOrientation(event) {
             let x = event.gamma; 
             let y = event.beta;
             
-            // 限制最大角度，避免小朋友拿太歪飛太快
             if (x > 45) x = 45; if (x < -45) x = -45;
             if (y > 45) y = 45; if (y < -45) y = -45;
             
@@ -286,9 +292,10 @@
         }
 
         function gameLoop() {
-            requestAnimationFrame(gameLoop);
+            // 每次執行都記錄 ID
+            animationFrameId = requestAnimationFrame(gameLoop);
 
-            // A. 校準模式 (視覺輔助)
+            // A. 校準模式
             if (isCalibrating) {
                 let dotX = tiltX * 1.5; 
                 let dotY = tiltY * 1.5;
@@ -310,17 +317,11 @@
             // B. 遊戲模式
             if (!isPlaying) return;
 
-            // --- 物理參數：回歸 V2/V3 設定 (最容易上手) ---
-            
             velocityX += tiltX * 0.05; 
             velocityY += tiltY * 0.05;
-            
-            // 摩擦力 0.92 (好煞車，不滑)
             velocityX *= 0.92; 
             velocityY *= 0.92;
             
-            // -----------------
-
             ballX += velocityX; ballY += velocityY;
 
             const dist = Math.sqrt(ballX * ballX + ballY * ballY);
@@ -338,24 +339,16 @@
             }
         }
 
-        // 4. 點擊任務 (取消所有難度遞增)
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
 
-            // 移除 intensity 計算
-            
-            // 固定微小的干擾 (數值固定為 5)
-            // 這只是為了讓球有點"生氣"的感覺，不會真的踢飛
+            // 固定干擾，不隨進度增加
             let kickForce = 5; 
-            
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
-            // 固定微小的震動 (50ms)
-            if(navigator.vibrate) {
-                navigator.vibrate(50);
-            }
+            if(navigator.vibrate) navigator.vibrate(50);
 
             taskProgress++;
             progressBar.style.width = (taskProgress / taskGoal) * 100 + "%";
@@ -371,6 +364,9 @@
         function endGame(isWin) {
             isPlaying = false;
             clearInterval(timerInterval);
+            
+            // 修正：遊戲結束時停止引擎，避免在背景空轉
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             
             const finalTime = ((Date.now() - startTime) / 1000).toFixed(2);
             
