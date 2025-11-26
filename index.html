@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>端水大挑戰 V12 (完美平衡版)</title>
+    <title>端水大挑戰 V13 (黃金比例版)</title>
     <style>
         body {
             margin: 0; padding: 0; overflow: hidden;
@@ -104,7 +104,7 @@
 
     <div id="setup-screen" class="overlay">
         <h1>⚖️ 端水大挑戰</h1>
-        <p style="margin-bottom: 5px; color:#aaa;">V12.0 完美平衡版</p>
+        <p style="margin-bottom: 5px; color:#aaa;">V13.0 黃金比例版</p>
         <input type="text" id="input-name" placeholder="輸入名字" maxlength="8">
         <button class="btn-success" onclick="checkPermission()">開始挑戰</button>
         <button class="btn-primary" style="background:none; border:1px solid #aaa;" onclick="showLeaderboard()">🏆 英雄榜</button>
@@ -157,7 +157,7 @@
     </div>
 
     <script>
-        // API 設定 (已填入您的網址)
+        // API 設定
         const API_URL = 'https://script.google.com/macros/s/AKfycbz6e0gMIXjlXzbTl0pBeIKbeN7J4F7mEZSzI0SfJ0gPkTW3HNvqp6JNy_mEMnZDwz4/exec';
 
         // DOM 元素
@@ -188,7 +188,7 @@
         let isCalibrating = false;
         let startTime = 0;
         let timerInterval;
-        let animationFrameId; // 核心變數：防止引擎堆疊
+        let animationFrameId; 
         
         let ballX = 0, ballY = 0;
         let velocityX = 0, velocityY = 0;
@@ -231,7 +231,6 @@
             
             document.getElementById('ready-player-display').innerText = `選手：${playerName}`;
             
-            // 重置參數
             ballX = 0; ballY = 0; velocityX = 0; velocityY = 0;
             taskProgress = 0;
             progressBar.style.width = "0%";
@@ -240,7 +239,6 @@
             isCalibrating = true;
             isPlaying = false;
 
-            // 確保停止舊迴圈，啟動新迴圈
             if (animationFrameId) cancelAnimationFrame(animationFrameId);
             gameLoop();
 
@@ -316,7 +314,6 @@
             // B. 遊戲模式
             if (!isPlaying) return;
 
-            // 經典手感物理參數
             velocityX += tiltX * 0.05; 
             velocityY += tiltY * 0.05;
             velocityX *= 0.92; 
@@ -339,7 +336,7 @@
             }
         }
 
-        // 4. 點擊任務 (漸進式難度 - 溫和版)
+        // 4. 點擊任務 (黃金比例微調)
         function tapTask(e) {
             e.preventDefault();
             if (!isPlaying) return;
@@ -347,16 +344,16 @@
             // 計算目前進度 (0.0 ~ 1.0)
             let intensity = taskProgress / taskGoal;
 
-            // 力道公式：基礎 5 (很輕) -> 滿能 15 (稍微明顯)
-            // 比較：之前太難的版本是加到 55
-            let kickForce = 5 + (intensity * 10); 
+            // 力道公式：基礎 4 (極輕) -> 滿能 12 (適中)
+            // 這個區間比上一版的 5~15 更友善，但仍有感
+            let kickForce = 4 + (intensity * 8); 
             
             velocityX += (Math.random() - 0.5) * kickForce;
             velocityY += (Math.random() - 0.5) * kickForce;
 
-            // 震動回饋：50ms (短) -> 100ms (稍長)
+            // 震動回饋：40ms -> 80ms
             if(navigator.vibrate) {
-                navigator.vibrate(50 + (intensity * 50));
+                navigator.vibrate(40 + (intensity * 40));
             }
 
             taskProgress++;
